@@ -1,0 +1,62 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Miscord.Client", "Miscord.Client\Miscord.Client.csproj", "{51AC8092-38BB-46E8-8011-021460E35300}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Miscord.Data", "Miscord.Data\Miscord.Data.csproj", "{DAF5859C-D518-4D23-856C-C8821A6C949D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Miscord.Services", "Miscord.Services\Miscord.Services.csproj", "{1DF80F14-07B8-4BFF-BF0B-15EE5267F470}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{51AC8092-38BB-46E8-8011-021460E35300}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{51AC8092-38BB-46E8-8011-021460E35300}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{51AC8092-38BB-46E8-8011-021460E35300}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{51AC8092-38BB-46E8-8011-021460E35300}.Debug|x64.Build.0 = Debug|Any CPU
+		{51AC8092-38BB-46E8-8011-021460E35300}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{51AC8092-38BB-46E8-8011-021460E35300}.Debug|x86.Build.0 = Debug|Any CPU
+		{51AC8092-38BB-46E8-8011-021460E35300}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{51AC8092-38BB-46E8-8011-021460E35300}.Release|Any CPU.Build.0 = Release|Any CPU
+		{51AC8092-38BB-46E8-8011-021460E35300}.Release|x64.ActiveCfg = Release|Any CPU
+		{51AC8092-38BB-46E8-8011-021460E35300}.Release|x64.Build.0 = Release|Any CPU
+		{51AC8092-38BB-46E8-8011-021460E35300}.Release|x86.ActiveCfg = Release|Any CPU
+		{51AC8092-38BB-46E8-8011-021460E35300}.Release|x86.Build.0 = Release|Any CPU
+		{DAF5859C-D518-4D23-856C-C8821A6C949D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DAF5859C-D518-4D23-856C-C8821A6C949D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DAF5859C-D518-4D23-856C-C8821A6C949D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{DAF5859C-D518-4D23-856C-C8821A6C949D}.Debug|x64.Build.0 = Debug|Any CPU
+		{DAF5859C-D518-4D23-856C-C8821A6C949D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{DAF5859C-D518-4D23-856C-C8821A6C949D}.Debug|x86.Build.0 = Debug|Any CPU
+		{DAF5859C-D518-4D23-856C-C8821A6C949D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DAF5859C-D518-4D23-856C-C8821A6C949D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DAF5859C-D518-4D23-856C-C8821A6C949D}.Release|x64.ActiveCfg = Release|Any CPU
+		{DAF5859C-D518-4D23-856C-C8821A6C949D}.Release|x64.Build.0 = Release|Any CPU
+		{DAF5859C-D518-4D23-856C-C8821A6C949D}.Release|x86.ActiveCfg = Release|Any CPU
+		{DAF5859C-D518-4D23-856C-C8821A6C949D}.Release|x86.Build.0 = Release|Any CPU
+		{1DF80F14-07B8-4BFF-BF0B-15EE5267F470}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1DF80F14-07B8-4BFF-BF0B-15EE5267F470}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1DF80F14-07B8-4BFF-BF0B-15EE5267F470}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{1DF80F14-07B8-4BFF-BF0B-15EE5267F470}.Debug|x64.Build.0 = Debug|Any CPU
+		{1DF80F14-07B8-4BFF-BF0B-15EE5267F470}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{1DF80F14-07B8-4BFF-BF0B-15EE5267F470}.Debug|x86.Build.0 = Debug|Any CPU
+		{1DF80F14-07B8-4BFF-BF0B-15EE5267F470}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1DF80F14-07B8-4BFF-BF0B-15EE5267F470}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1DF80F14-07B8-4BFF-BF0B-15EE5267F470}.Release|x64.ActiveCfg = Release|Any CPU
+		{1DF80F14-07B8-4BFF-BF0B-15EE5267F470}.Release|x64.Build.0 = Release|Any CPU
+		{1DF80F14-07B8-4BFF-BF0B-15EE5267F470}.Release|x86.ActiveCfg = Release|Any CPU
+		{1DF80F14-07B8-4BFF-BF0B-15EE5267F470}.Release|x86.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
