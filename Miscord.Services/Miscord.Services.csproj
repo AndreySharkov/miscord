@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="../Miscord.Data/Miscord.Data.csproj" />
+  </ItemGroup>
+
 </Project>
