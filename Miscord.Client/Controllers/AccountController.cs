@@ -19,7 +19,6 @@ namespace Miscord.Client.Controllers
 
         }
 
-        // GET: /Account/Login
         [HttpGet]
         public IActionResult Login()
         {
@@ -30,7 +29,6 @@ namespace Miscord.Client.Controllers
             return View();
         }
 
-        // POST: /Account/Login
         [HttpPost]
         [ValidateAntiForgeryToken] // Protects against Cross-Site Request Forgery (CSRF)
         public async Task<IActionResult> Login(LoginViewModel model)
