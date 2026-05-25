@@ -1,0 +1,43 @@
+@model Miscord.Data.Models.Server
+
+<!-- Channel Header -->
+<div class="content-header">
+    <svg class="ch-header-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <span class="ch-header-name">@(ViewData["ActiveChannel"] ?? "general")</span>
+</div>
+
+<div class="chat-container">
+    <div style="flex:1"></div>
+    <div class="welcome-section">
+        <div class="welcome-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/>
+            </svg>
+        </div>
+        <h1 class="welcome-title">Welcome to @Model.Name!</h1>
+        <p class="welcome-subtitle">This is the start of the <strong style="color:#dbdee1">@Model.Name</strong> server. Select a channel to start chatting.</p>
+    </div>
+</div>
+
+<div class="chat-input-area">
+    <div class="chat-input-wrapper">
+        <button class="chat-btn" title="Upload a File" type="button">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                <line x1="12" y1="8" x2="12" y2="16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <line x1="8" y1="12" x2="16" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </button>
+        <input type="text" class="chat-input-field" placeholder="Message #@(ViewData["ActiveChannel"] ?? "general")" autocomplete="off" />
+        <button class="chat-btn" title="Open Emoji Picker" type="button">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+                <line x1="9" y1="9" x2="9.01" y2="9"/>
+                <line x1="15" y1="9" x2="15.01" y2="9"/>
+            </svg>
+        </button>
+    </div>
+</div>

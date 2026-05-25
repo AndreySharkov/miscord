@@ -1,0 +1,36 @@
+@model IEnumerable<Miscord.Data.Models.Server>
+
+<nav class="server-sidebar">
+
+    <!-- Home button -->
+    <div class="server-icon-wrapper">
+        <a class="server-icon home" href="/" title="Home">
+            <img src="/favicon.ico" width="24" height="24" alt="Home" />
+        </a>
+    </div>
+
+    <div class="server-divider"></div>
+
+    @foreach (var server in Model)
+    {
+        <div class="server-icon-wrapper" id="server-wrapper-@server.Id">
+            <a class="server-icon"
+               href="javascript:void(0)"
+               onclick="loadServer(@server.Id, this)"
+               title="@server.Name">
+                @server.Name.Substring(0, Math.Min(2, server.Name.Length)).ToUpper()
+            </a>
+        </div>
+    }
+
+    <!-- Add a Server -->
+    <div class="server-icon-wrapper">
+        <div class="server-icon add-server" title="Add a Server">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+        </div>
+    </div>
+
+</nav>

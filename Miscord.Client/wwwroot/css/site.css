@@ -1,31 +1,652 @@
-html {
-  font-size: 14px;
-}
+/* ============================================================
+   site.css — Discord-accurate layout glue
+   Colors, sizes, and structures match Discord's dark theme
+   ============================================================ */
 
-@media (min-width: 768px) {
-  html {
-    font-size: 16px;
-  }
-}
+/* ─── Custom Scrollbars ──────────────────────────────────── */
+::-webkit-scrollbar            { width: 8px; }
+::-webkit-scrollbar-track      { background: transparent; }
+::-webkit-scrollbar-thumb      { background: #1a1b1e; border-radius: 4px; border: 2px solid #2b2d31; }
+::-webkit-scrollbar-thumb:hover{ background: #111214; }
 
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
-}
-
-html {
-  position: relative;
-  min-height: 100%;
+/* ─── Base Reset ─────────────────────────────────────────── */
+*, *::before, *::after {
+    box-sizing: border-box;
 }
 
 body {
-  margin-bottom: 60px;
+    font-family: 'gg sans', 'Noto Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background: #111214;
+    color: #dbdee1;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
 }
 
-.form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
-  color: var(--bs-secondary-color);
-  text-align: end;
+/* ─── App Root ───────────────────────────────────────────── */
+.app-container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    background: #111214;
 }
 
-.form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
-  text-align: start;
+/* ═══════════════════════════════════════════════════════════
+   1.  SERVER SIDEBAR  (far left, 72 px)
+   ═══════════════════════════════════════════════════════════ */
+.server-sidebar {
+    width: 72px;
+    min-width: 72px;
+    background: #111214;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 0 8px;
+    gap: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+    flex-shrink: 0;
 }
+.server-sidebar::-webkit-scrollbar { display: none; }
+
+/* Pill + icon wrapper */
+.server-icon-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 72px;
+    height: 56px;
+    flex-shrink: 0;
+}
+
+/* Active / hover pill on left edge */
+.server-icon-wrapper::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 0;
+    background: #fff;
+    border-radius: 0 4px 4px 0;
+    transition: height 0.15s ease, opacity 0.15s ease;
+    opacity: 0;
+}
+.server-icon-wrapper:hover::before          { height: 20px; opacity: 1; }
+.server-icon-wrapper.active::before         { height: 40px; opacity: 1; }
+
+.server-icon {
+    width: 48px;
+    height: 48px;
+    background: #313338;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-radius 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+    color: #dbdee1;
+    text-decoration: none !important;
+    font-size: 18px;
+    font-weight: 600;
+    flex-shrink: 0;
+    user-select: none;
+    letter-spacing: -0.5px;
+    overflow: hidden;
+}
+.server-icon:hover,
+.server-icon-wrapper.active .server-icon {
+    border-radius: 16px;
+    background: #5865f2;
+    color: #fff;
+}
+.server-icon.home       { background: #313338; }
+.server-icon.home:hover { background: #5865f2; }
+.server-icon.add-server { color: #23a559; font-size: 24px; font-weight: 300; }
+.server-icon.add-server:hover { background: #23a559; color: #fff; border-radius: 16px; }
+
+.server-divider {
+    width: 32px;
+    height: 2px;
+    background: #35373c;
+    border-radius: 1px;
+    margin: 0 auto 8px;
+    flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   2.  CHANNEL SIDEBAR  (240 px)
+   ═══════════════════════════════════════════════════════════ */
+.channel-sidebar {
+    width: 240px;
+    min-width: 240px;
+    background: #2b2d31;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+/* Server name bar */
+.sidebar-header {
+    height: 48px;
+    min-height: 48px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    flex-shrink: 0;
+    box-shadow: 0 1px 0 rgba(4,4,5,.2), 0 1.5px 0 rgba(6,6,7,.05), 0 2px 0 rgba(4,4,5,.05);
+    transition: background-color 0.15s ease;
+    user-select: none;
+}
+.sidebar-header:hover { background: rgba(79,84,92,.16); }
+
+.sidebar-header-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #f2f3f5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Scroll area */
+.channel-list {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 8px 0 4px;
+}
+.channel-list::-webkit-scrollbar       { width: 4px; }
+.channel-list::-webkit-scrollbar-thumb { background: #1a1b1e; border-radius: 2px; }
+
+/* Category header */
+.channel-category {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 16px 8px 4px 18px;
+    color: #80848e;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s ease;
+}
+.channel-category:hover { color: #dbdee1; }
+.channel-category svg   { transition: transform 0.15s ease; }
+
+/* Channel row */
+.channel-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 1px 8px;
+    margin: 1px 8px;
+    border-radius: 4px;
+    min-height: 34px;
+    cursor: pointer;
+    color: #80848e;
+    text-decoration: none !important;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.375rem;
+    user-select: none;
+    transition: background-color 0.1s ease, color 0.1s ease;
+}
+.channel-item:hover  { background: rgba(78,80,88,.3);  color: #dbdee1; }
+.channel-item.active { background: rgba(78,80,88,.6); color: #fff !important; }
+
+.channel-item .ch-icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    opacity: .7;
+    transition: opacity 0.1s ease;
+}
+.channel-item:hover  .ch-icon,
+.channel-item.active .ch-icon { opacity: 1; }
+
+.channel-item .ch-name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ─── User Panel ─────────────────────────────────────────── */
+.user-panel {
+    height: 52px;
+    min-height: 52px;
+    background: #232428;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    gap: 0;
+    flex-shrink: 0;
+}
+
+.user-info {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    overflow: hidden;
+    min-width: 0;
+    transition: background-color 0.15s ease;
+}
+.user-info:hover { background: rgba(79,84,92,.4); }
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #5865f2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+}
+.user-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+
+.user-status-dot {
+    position: absolute;
+    bottom: -1px;
+    right: -1px;
+    width: 10px;
+    height: 10px;
+    background: #23a559;
+    border-radius: 50%;
+    border: 2px solid #232428;
+}
+
+.user-details { overflow: hidden; min-width: 0; }
+.user-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #f2f3f5;
+    line-height: 18px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.user-tag {
+    font-size: 12px;
+    color: #80848e;
+    line-height: 13px;
+    white-space: nowrap;
+}
+
+.user-panel-actions {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.up-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #b9bbbe;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    position: relative;
+}
+.up-btn:hover { background: rgba(79,84,92,.4); color: #dcddde; }
+
+/* ═══════════════════════════════════════════════════════════
+   3.  MAIN CONTENT  (right panel)
+   ═══════════════════════════════════════════════════════════ */
+.main-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    background: #313338;
+    overflow: hidden;
+}
+
+/* Channel header bar */
+.content-header {
+    height: 48px;
+    min-height: 48px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    z-index: 2;
+    box-shadow: 0 1px 0 rgba(4,4,5,.2), 0 1.5px 0 rgba(6,6,7,.05), 0 2px 0 rgba(4,4,5,.05);
+}
+.content-header .ch-header-icon { color: #80848e; flex-shrink: 0; }
+.content-header .ch-header-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #f2f3f5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.content-header .header-divider {
+    width: 1px;
+    height: 24px;
+    background: #3f4147;
+    flex-shrink: 0;
+    margin: 0 4px;
+}
+.content-header .ch-header-topic {
+    font-size: 14px;
+    color: #80848e;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ─── Chat Scroll Container ──────────────────────────────── */
+.chat-container {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+.chat-container::-webkit-scrollbar       { width: 8px; }
+.chat-container::-webkit-scrollbar-track { background: #2f3136; border-radius: 4px; }
+.chat-container::-webkit-scrollbar-thumb { background: #202225; border-radius: 4px; border: 2px solid #313338; }
+
+/* Welcome hero */
+.welcome-section {
+    padding: 16px 16px 24px;
+    margin-top: auto;
+}
+
+.welcome-icon {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    background: #5865f2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+}
+
+.welcome-title {
+    font-size: 32px;
+    font-weight: 700;
+    color: #f2f3f5;
+    margin: 0 0 8px;
+    line-height: 1.25;
+}
+
+.welcome-subtitle {
+    font-size: 16px;
+    color: #80848e;
+    margin: 0;
+    line-height: 1.375;
+}
+
+/* ─── Message Items ──────────────────────────────────────── */
+.message-group-spacer { height: 16px; }
+
+/* Full message (first in group) */
+.message-item {
+    position: relative;
+    padding: 2px 48px 2px 72px;
+    min-height: 2.75rem;
+}
+.message-item:hover { background: rgba(4,4,5,.07); }
+.message-item:hover .msg-time { opacity: 1; }
+
+.msg-avatar {
+    position: absolute;
+    left: 16px;
+    top: 4px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #5865f2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    cursor: pointer;
+    flex-shrink: 0;
+    user-select: none;
+    overflow: hidden;
+}
+.msg-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+
+.msg-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 2px;
+    line-height: 1.375rem;
+}
+
+.msg-username {
+    font-size: 1rem;
+    font-weight: 500;
+    color: #f2f3f5;
+    cursor: pointer;
+    line-height: 1.375rem;
+}
+.msg-username:hover { text-decoration: underline; }
+
+.msg-time {
+    font-size: 0.75rem;
+    color: #80848e;
+    font-weight: 400;
+    line-height: 1.375rem;
+    opacity: 0;
+    transition: opacity 0.1s ease;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.msg-text {
+    font-size: 1rem;
+    line-height: 1.375rem;
+    color: #dbdee1;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* Continued message (same author, within 7 min) */
+.message-item.continued {
+    min-height: 1.375rem;
+    padding-top: 1px;
+    padding-bottom: 1px;
+}
+.message-item.continued .msg-time-compact {
+    position: absolute;
+    left: 0;
+    width: 72px;
+    text-align: center;
+    font-size: 0.6875rem;
+    color: #80848e;
+    opacity: 0;
+    transition: opacity 0.1s ease;
+    line-height: 1.375rem;
+    user-select: none;
+}
+.message-item.continued:hover .msg-time-compact { opacity: 1; }
+
+/* ─── Chat Input ─────────────────────────────────────────── */
+.chat-input-area {
+    padding: 0 16px 24px;
+    flex-shrink: 0;
+}
+
+.chat-input-wrapper {
+    background: #383a40;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 0;
+    min-height: 44px;
+}
+
+.chat-btn {
+    background: none;
+    border: none;
+    color: #80848e;
+    cursor: pointer;
+    padding: 0 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    height: 44px;
+    transition: color 0.15s ease;
+}
+.chat-btn:hover { color: #dcddde; }
+
+.chat-input-field {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #dbdee1;
+    font-size: 1rem;
+    line-height: 1.375rem;
+    outline: none;
+    padding: 11px 4px;
+    min-width: 0;
+    caret-color: #dbdee1;
+    font-family: inherit;
+}
+.chat-input-field::placeholder { color: #4e5058; }
+
+/* ═══════════════════════════════════════════════════════════
+   4.  AUTH PAGES
+   ═══════════════════════════════════════════════════════════ */
+.auth-bg {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #313338;
+    padding: 20px;
+}
+
+.auth-container {
+    width: 100%;
+    max-width: 480px;
+    background: #313338;
+    padding: 32px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.5), 0 8px 40px rgba(0,0,0,.3);
+    color: #dbdee1;
+}
+
+.auth-container h2 {
+    color: #f2f3f5;
+    text-align: center;
+    margin: 0 0 8px;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 30px;
+}
+
+.auth-subtitle {
+    color: #80848e;
+    text-align: center;
+    font-size: 16px;
+    margin: 0 0 20px;
+    line-height: 1.5;
+}
+
+.form-group { margin-bottom: 16px; }
+
+.form-group label {
+    display: block;
+    color: #b5bac1;
+    text-transform: uppercase;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    letter-spacing: 0.02em;
+}
+
+.form-control-discord {
+    width: 100%;
+    background: #1e1f22;
+    border: 1px solid #1e1f22;
+    padding: 10px;
+    color: #dbdee1;
+    border-radius: 3px;
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.15s ease;
+    font-family: inherit;
+}
+.form-control-discord:focus { border-color: #5865f2; }
+
+.btn-discord {
+    width: 100%;
+    background: #5865f2;
+    color: #fff;
+    border: none;
+    padding: 10px;
+    border-radius: 3px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: background-color 0.15s ease;
+    font-family: inherit;
+}
+.btn-discord:hover { background: #4752c4; }
+
+/* ─── Empty / placeholder states ─────────────────────────── */
+.empty-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #80848e;
+    gap: 8px;
+    user-select: none;
+}
+.empty-main svg { opacity: .3; margin-bottom: 8px; }
+.empty-main-title { font-size: 20px; font-weight: 700; color: #f2f3f5; }
+.empty-main-text  { font-size: 16px; color: #80848e; }
+
+/* "Select a server" placeholder text in channel list */
+.channel-list-placeholder {
+    padding: 12px 16px;
+    font-size: 13px;
+    color: #4e5058;
+}
+
+/* Utility: hide bootstrap defaults that conflict */
+.container { max-width: none !important; padding: 0 !important; margin: 0 !important; width: auto !important; }

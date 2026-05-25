@@ -1,0 +1,86 @@
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<Miscord.Data.Models.ApplicationUser> UserManager
+@model Miscord.Data.Models.Channel
+
+<input type="hidden" id="current-user-id"   value="@UserManager.GetUserId(User)" />
+<input type="hidden" id="current-user-name" value="@User.Identity?.Name" />
+
+<!-- Channel Header -->
+<div class="content-header">
+    <svg class="ch-header-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <span class="ch-header-name">@Model.Name</span>
+    <div class="header-divider"></div>
+    <span class="ch-header-topic">Welcome to #@Model.Name!</span>
+</div>
+
+<!-- Chat scroll area -->
+<div class="chat-container" id="messages-container">
+
+    <!-- Welcome banner (pushed to bottom by flex) -->
+    <div style="flex:1"></div>
+    <div class="welcome-section">
+        <div class="welcome-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/>
+            </svg>
+        </div>
+        <h1 class="welcome-title">Welcome to #@Model.Name!</h1>
+        <p class="welcome-subtitle">This is the very beginning of the <strong style="color:#dbdee1">#@Model.Name</strong> channel.</p>
+    </div>
+
+    @foreach (var msg in Model.Messages)
+    {
+        <div class="message-item">
+            <div class="contents">
+                <img src="/favicon.ico" style="width: 40px; height: 40px; border-radius: 50%; position: absolute; left: 16px; top: 2px;" />
+                <h3 style="margin: 0; line-height: 1.375rem; display: flex; align-items: center; gap: 8px;">
+                    <span class="username-text" style="font-weight: 600; color: #ffffff; font-size: 1rem; cursor: pointer;">@(msg.Author?.Nickname ?? msg.Author?.UserName ?? "Unknown")</span>
+                    <span style="font-size: 0.75rem; color: #949ba4; font-weight: 400;">@msg.Timestamp.ToLocalTime().ToString("g")</span>
+                </h3>
+                <div style="color: #dbdee1; font-size: 1rem; line-height: 1.375rem; white-space: pre-wrap; word-wrap: break-word;">@msg.Content</div>
+            </div>
+        </div>
+    }
+
+    <!-- Messages injected here by SignalR / JS -->
+
+</div>
+
+<!-- Chat Input -->
+<div class="chat-input-area">
+    <div class="chat-input-wrapper">
+        <!-- Add attachment button -->
+        <button class="chat-btn" title="Upload a File" type="button">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
+                <line x1="12" y1="8" x2="12" y2="16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <line x1="8"  y1="12" x2="16" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </button>
+
+        <input
+            type="text"
+            id="message-input"
+            class="chat-input-field"
+            placeholder="Message #@Model.Name"
+            autocomplete="off"
+        />
+
+        <!-- Emoji picker button -->
+        <button class="chat-btn" title="Open Emoji Picker" type="button">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+                <line x1="9" y1="9" x2="9.01" y2="9"/>
+                <line x1="15" y1="9" x2="15.01" y2="9"/>
+            </svg>
+        </button>
+
+        <!-- GIF button -->
+        <button class="chat-btn" title="GIF" type="button" style="font-size:12px;font-weight:700;width:28px;letter-spacing:-.5px">
+            GIF
+        </button>
+    </div>
+</div>
