@@ -2,8 +2,35 @@
 @inject UserManager<Miscord.Data.Models.ApplicationUser> UserManager
 @model Miscord.Data.Models.Channel
 
+@{
+    var currentUser = await UserManager.GetUserAsync(User);
+    var currentUserPfp = currentUser?.ProfilePictureData != null ? Convert.ToBase64String(currentUser.ProfilePictureData) : "";
+
+    string FormatHistoryTimestamp(DateTime timestamp)
+    {
+        var local = timestamp.ToLocalTime();
+        var now = DateTime.Now;
+        
+        string timeStr = local.ToString("h:mm tt");
+
+        if (local.Date == now.Date)
+        {
+            return $"Today at {timeStr}";
+        }
+        else if (local.Date == now.Date.AddDays(-1))
+        {
+            return $"Yesterday at {timeStr}";
+        }
+        else
+        {
+            return local.ToString("MM/dd/yyyy h:mm tt");
+        }
+    }
+}
+
 <input type="hidden" id="current-user-id"   value="@UserManager.GetUserId(User)" />
-<input type="hidden" id="current-user-name" value="@User.Identity?.Name" />
+<input type="hidden" id="current-user-name" value="@(currentUser?.Nickname ?? currentUser?.UserName ?? "Unknown")" />
+<input type="hidden" id="current-user-pfp"  value="@currentUserPfp" />
 
 <!-- Channel Header -->
 <div class="content-header">
@@ -31,25 +58,22 @@
     </div>
 
     @{
-        string lastAuthor = null;
+        string? lastAuthor = null;
         DateTime? lastTime = null;
     }
 
     @foreach (var msg in Model.Messages)
     {
-        bool isContinued = lastAuthor == msg.AuthorId && lastTime.HasValue && (msg.Timestamp - lastTime.Value).TotalMinutes < 5;
+        bool isContinued = lastAuthor == msg.AuthorId && lastTime.HasValue && (msg.Timestamp - lastTime.Value).TotalMinutes < 7;
         lastAuthor = msg.AuthorId;
         lastTime = msg.Timestamp;
         var displayName = msg.Author?.Nickname ?? msg.Author?.UserName ?? "Unknown";
-        
-        // Consistent hash-based color generator
-        int hash = displayName.GetHashCode();
-        string color = $"hsl({Math.Abs(hash % 360)}, 70%, 45%)";
+        var userColor = AvatarHelper.GetUserColor(displayName);
 
         <div class="message-item @(isContinued ? "continued" : "")">
             @if (!isContinued)
             {
-                <div class="msg-avatar" style="background-color: @(msg.Author?.ProfilePictureData == null ? "#5865f2" : "transparent");">
+                <div class="msg-avatar" style="background-color: @(msg.Author?.ProfilePictureData == null ? userColor : "transparent");">
                     @if (msg.Author?.ProfilePictureData == null)
                     {
                         <span>@displayName.Substring(0, 1).ToUpper()</span>
@@ -59,17 +83,17 @@
                         <img src="data:image/png;base64,@Convert.ToBase64String(msg.Author.ProfilePictureData)" />
                     }
                 </div>
-                <div>
+                <div class="msg-body">
                     <div class="msg-header">
-                        <span class="msg-username">@displayName</span>
-                        <span class="msg-time">@msg.Timestamp.ToLocalTime().ToString("g")</span>
+                        <span class="msg-username" style="color: @userColor">@displayName</span>
+                        <span class="msg-time">@FormatHistoryTimestamp(msg.Timestamp)</span>
                     </div>
                     <div class="msg-text">@msg.Content</div>
                 </div>
             }
             else
             {
-                <div class="msg-time-compact">@msg.Timestamp.ToLocalTime().ToString("t")</div>
+                <div class="msg-time-compact">@msg.Timestamp.ToLocalTime().ToString("h:mm tt")</div>
                 <div class="msg-text">@msg.Content</div>
             }
         </div>

@@ -1,3 +1,5 @@
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<Miscord.Data.Models.ApplicationUser> UserManager
 <!DOCTYPE html>
 <html lang="en-GB" class="platform-web theme-dark theme-darker images-dark density-default font-size-16 no-webkit-scrollbar mouse-mode full-motion app-focused visual-refresh mana-toggle-inputs">
 <head>
@@ -30,26 +32,7 @@
                 <div class="channel-list">
                     @if (ViewData["Channels"] is IEnumerable<Miscord.Data.Models.Channel> channels)
                     {
-                        <!-- Text Channels category -->
-                        <div class="channel-category">
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                                <polyline points="9 18 15 12 9 6"/>
-                            </svg>
-                            Text Channels
-                        </div>
-
-                        @foreach (var channel in channels)
-                        {
-                            <a class="channel-item @(channel.Name == (string?)ViewData["ActiveChannel"] ? "active" : "")"
-                               href="javascript:void(0)"
-                               onclick="loadChannel(@channel.Id)">
-                                <!-- Hash icon -->
-                                <svg class="ch-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                    <path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                </svg>
-                                <span class="ch-name">@channel.Name</span>
-                            </a>
-                        }
+                        <partial name="~/Views/Server/_ChannelList.cshtml" model="channels" />
                     }
                     else
                     {
@@ -58,14 +41,26 @@
                 </div>
 
                 <!-- User Panel -->
+                @{
+                    var currentUser = await UserManager.GetUserAsync(User);
+                    var displayName = currentUser?.Nickname ?? currentUser?.UserName ?? "Unknown";
+                    var userColor = AvatarHelper.GetUserColor(displayName);
+                }
                 <div class="user-panel">
                     <div class="user-info">
-                        <div class="user-avatar">
-                            @User.Identity.Name?.Substring(0, 1).ToUpper()
+                        <div class="user-avatar" style="background-color: @(currentUser?.ProfilePictureData == null ? userColor : "transparent")">
+                            @if (currentUser?.ProfilePictureData == null)
+                            {
+                                @displayName.Substring(0, 1).ToUpper()
+                            }
+                            else
+                            {
+                                <img src="data:image/png;base64,@Convert.ToBase64String(currentUser.ProfilePictureData)" />
+                            }
                             <div class="user-status-dot"></div>
                         </div>
                         <div class="user-details">
-                            <div class="user-name">@User.Identity.Name</div>
+                            <div class="user-name">@displayName</div>
                             <div class="user-tag">Online</div>
                         </div>
                     </div>

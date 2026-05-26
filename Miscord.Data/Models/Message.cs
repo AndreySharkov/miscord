@@ -25,5 +25,7 @@ namespace Miscord.Data.Models
         public string AuthorId { get; set; } = null!;
         [ForeignKey("AuthorId")]
         public ApplicationUser Author { get; set; } = null!;
+
+        public bool IsDeleted { get; set; } = false;
     }
 }

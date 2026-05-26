@@ -1,5 +1,13 @@
 @model IEnumerable<Miscord.Data.Models.Channel>
 
+<!-- Text Channels category -->
+<div class="channel-category">
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 18 15 12 9 6"/>
+    </svg>
+    Text Channels
+</div>
+
 @foreach (var channel in Model)
 {
     <a class="channel-item"

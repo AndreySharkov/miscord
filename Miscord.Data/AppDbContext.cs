@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Miscord.Data.Models;
 using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Miscord.Data
 {
@@ -44,6 +46,7 @@ namespace Miscord.Data
                 .HasOne(m => m.Author)
                 .WithMany(u => u.Messages)
                 .HasForeignKey(m => m.AuthorId)
+                .HasQueryFilter(m => !m.IsDeleted)
                 .OnDelete(DeleteBehavior.Restrict); 
         }
     }

@@ -20,6 +20,7 @@ namespace Miscord.Client.Hubs
             Console.WriteLine($"SendMessage invoked: User={userId}, Channel={channelId}, Content={content}");
             var user = await _context.Users.FindAsync(userId);
             var displayName = user?.Nickname ?? user?.UserName ?? "Unknown";
+            var pfpBase64 = user?.ProfilePictureData != null ? Convert.ToBase64String(user.ProfilePictureData) : null;
 
             var message = new Message
             {
@@ -32,7 +33,7 @@ namespace Miscord.Client.Hubs
             await _context.SaveChangesAsync();
 
             Console.WriteLine($"Broadcasting to Group={channelId}");
-            await Clients.Group(channelId.ToString()).SendAsync("ReceiveMessage", displayName, content);
+            await Clients.Group(channelId.ToString()).SendAsync("ReceiveMessage", displayName, content, channelId, pfpBase64);
         }
 
         public async Task JoinChannel(int channelId)

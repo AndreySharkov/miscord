@@ -31,6 +31,7 @@ function formatTimestamp(date) {
 var lastMsgUser  = null;
 var lastMsgTime  = null;
 var GROUP_GAP_MS = 7 * 60 * 1000;
+var currentChannelId = null;
 
 // ─── Dedup: optimistic sends we haven't seen echoed back yet ───────
 // Stored as { user, message, expireAt }
@@ -54,7 +55,7 @@ function consumePending(user, message) {
 }
 
 // ─── Core: append one message to the container ────────────────────
-function appendMessage(user, message) {
+function appendMessage(user, message, pfp) {
     var container = document.getElementById('messages-container');
     if (!container) return;
 
@@ -77,10 +78,17 @@ function appendMessage(user, message) {
             '<div class="msg-text">' + renderMessage(message) + '</div>';
     } else {
         var initial = (user || '?').charAt(0).toUpperCase();
+        var avatarHtml = '';
+        if (pfp) {
+            avatarHtml = '<img src="data:image/png;base64,' + pfp + '" />';
+        } else {
+            avatarHtml = '<span>' + escapeHtml(initial) + '</span>';
+        }
+
         div.className = 'message-item';
         div.innerHTML =
-            '<div class="msg-avatar" style="background-color:' + color + '" title="' + escapeHtml(user) + '">' +
-                escapeHtml(initial) +
+            '<div class="msg-avatar" style="background-color:' + (pfp ? 'transparent' : color) + '" title="' + escapeHtml(user) + '">' +
+                avatarHtml +
             '</div>' +
             '<div class="msg-body">' +
                 '<div class="msg-header">' +
@@ -107,16 +115,27 @@ var connection = new signalR.HubConnectionBuilder()
     .withAutomaticReconnect()
     .build();
 
-connection.on('ReceiveMessage', function (user, message) {
+connection.on('ReceiveMessage', function (user, message, channelId, pfp) {
+    // Only render if it's for the current channel
+    if (channelId && channelId != currentChannelId) return;
+
     // If this is the hub echoing back our own optimistic message, skip it.
     if (consumePending(user, message)) return;
 
     // Otherwise it's from another user (or the hub doesn't echo — we never
     // added it to pendingSent, so consumePending returns false and we render).
-    appendMessage(user, message);
+    appendMessage(user, message, pfp);
 });
 
-connection.start().catch(function(err) { console.error('SignalR start error:', err); });
+connection.start()
+    .then(function() {
+        console.log('SignalR connected');
+        if (currentChannelId) {
+            connection.invoke('JoinChannel', parseInt(currentChannelId, 10))
+                .catch(function(err){ console.error('JoinChannel error:', err); });
+        }
+    })
+    .catch(function(err) { console.error('SignalR start error:', err); });
 
 // ─── Server / Channel Loading ──────────────────────────────────────
 function loadServer(serverId, el) {
@@ -153,11 +172,20 @@ function loadChannel(channelId) {
         if (oc.indexOf('loadChannel(' + channelId + ')') !== -1) item.classList.add('active');
     });
 
+    currentChannelId = channelId;
+
     fetch('/Server/GetChat?channelId=' + channelId)
         .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
         .then(function(html){
             var main = document.querySelector('.main-content');
-            if (main) { main.innerHTML = html; setupChatInput(channelId); }
+            if (main) { 
+                main.innerHTML = html; 
+                setupChatInput(channelId);
+                if (connection.state === signalR.HubConnectionState.Connected) {
+                    connection.invoke('JoinChannel', parseInt(channelId, 10))
+                        .catch(function(err){ console.error('JoinChannel error:', err); });
+                }
+            }
         })
         .catch(function(err){ console.error('GetChat:', err); });
 
@@ -185,12 +213,14 @@ function setupChatInput(channelId) {
 
         var userIdEl   = document.getElementById('current-user-id');
         var userNameEl = document.getElementById('current-user-name');
+        var userPfpEl  = document.getElementById('current-user-pfp');
         if (!userIdEl) return;
 
         var userName = (userNameEl && userNameEl.value) ? userNameEl.value : 'Unknown';
+        var userPfp  = (userPfpEl && userPfpEl.value) ? userPfpEl.value : null;
 
         // ── 1. Render immediately (optimistic UI) ──────────────────
-        appendMessage(userName, message);
+        appendMessage(userName, message, userPfp);
 
         // ── 2. Register as pending so the hub echo is skipped ──────
         pushPending(userName, message);
