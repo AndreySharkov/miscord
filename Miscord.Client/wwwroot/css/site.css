@@ -417,9 +417,10 @@ body {
     position: relative;
     padding: 2px 48px 2px 72px;
     min-height: 2.75rem;
+    color: #dbdee1;
 }
-.message-item:hover { background: rgba(4,4,5,.07); }
-.message-item:hover .msg-time { opacity: 1; }
+.message-item:hover { background: rgba(4,4,5,0.1); }
+.message-item:hover .msg-time, .message-item:hover .msg-time-compact { opacity: 1; }
 
 .msg-avatar {
     position: absolute;
@@ -432,7 +433,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 700;
     color: #fff;
     cursor: pointer;
@@ -440,6 +441,7 @@ body {
     user-select: none;
     overflow: hidden;
 }
+.msg-avatar span { text-transform: uppercase; }
 .msg-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 
 .msg-header {

@@ -30,17 +30,48 @@
         <p class="welcome-subtitle">This is the very beginning of the <strong style="color:#dbdee1">#@Model.Name</strong> channel.</p>
     </div>
 
+    @{
+        string lastAuthor = null;
+        DateTime? lastTime = null;
+    }
+
     @foreach (var msg in Model.Messages)
     {
-        <div class="message-item">
-            <div class="contents">
-                <img src="/favicon.ico" style="width: 40px; height: 40px; border-radius: 50%; position: absolute; left: 16px; top: 2px;" />
-                <h3 style="margin: 0; line-height: 1.375rem; display: flex; align-items: center; gap: 8px;">
-                    <span class="username-text" style="font-weight: 600; color: #ffffff; font-size: 1rem; cursor: pointer;">@(msg.Author?.Nickname ?? msg.Author?.UserName ?? "Unknown")</span>
-                    <span style="font-size: 0.75rem; color: #949ba4; font-weight: 400;">@msg.Timestamp.ToLocalTime().ToString("g")</span>
-                </h3>
-                <div style="color: #dbdee1; font-size: 1rem; line-height: 1.375rem; white-space: pre-wrap; word-wrap: break-word;">@msg.Content</div>
-            </div>
+        bool isContinued = lastAuthor == msg.AuthorId && lastTime.HasValue && (msg.Timestamp - lastTime.Value).TotalMinutes < 5;
+        lastAuthor = msg.AuthorId;
+        lastTime = msg.Timestamp;
+        var displayName = msg.Author?.Nickname ?? msg.Author?.UserName ?? "Unknown";
+        
+        // Consistent hash-based color generator
+        int hash = displayName.GetHashCode();
+        string color = $"hsl({Math.Abs(hash % 360)}, 70%, 45%)";
+
+        <div class="message-item @(isContinued ? "continued" : "")">
+            @if (!isContinued)
+            {
+                <div class="msg-avatar" style="background-color: @(msg.Author?.ProfilePictureData == null ? "#5865f2" : "transparent");">
+                    @if (msg.Author?.ProfilePictureData == null)
+                    {
+                        <span>@displayName.Substring(0, 1).ToUpper()</span>
+                    }
+                    else
+                    {
+                        <img src="data:image/png;base64,@Convert.ToBase64String(msg.Author.ProfilePictureData)" />
+                    }
+                </div>
+                <div>
+                    <div class="msg-header">
+                        <span class="msg-username">@displayName</span>
+                        <span class="msg-time">@msg.Timestamp.ToLocalTime().ToString("g")</span>
+                    </div>
+                    <div class="msg-text">@msg.Content</div>
+                </div>
+            }
+            else
+            {
+                <div class="msg-time-compact">@msg.Timestamp.ToLocalTime().ToString("t")</div>
+                <div class="msg-text">@msg.Content</div>
+            }
         </div>
     }
 
