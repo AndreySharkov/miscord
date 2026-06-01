@@ -21,5 +21,8 @@ namespace Miscord.Data.Models
         public ApplicationUser Owner { get; set; } = null!;
 
         public ICollection<Channel> Channels { get; set; } = new List<Channel>();
+
+        public bool IsDeleted { get; set; } = false;
+
     }
 }

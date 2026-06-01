@@ -46,8 +46,20 @@ namespace Miscord.Data
                 .HasOne(m => m.Author)
                 .WithMany(u => u.Messages)
                 .HasForeignKey(m => m.AuthorId)
-                .HasQueryFilter(m => !m.IsDeleted)
                 .OnDelete(DeleteBehavior.Restrict); 
+                
+            builder.Entity<Message>()
+                .HasQueryFilter(m => !m.IsDeleted);
+
+            builder.Entity<Server>()
+                .HasQueryFilter(s => !s.IsDeleted);
+
+            builder.Entity<Channel>()
+                .HasQueryFilter(c => !c.IsDeleted);
+
+            builder.Entity<ApplicationUser>()
+                .HasQueryFilter(u => !u.IsDeleted);
+
         }
     }
 }

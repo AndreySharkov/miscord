@@ -55,48 +55,61 @@ function consumePending(user, message) {
 }
 
 // ─── Core: append one message to the container ────────────────────
-function appendMessage(user, message, pfp) {
-    var container = document.getElementById('messages-container');
+function appendMessage(user, message, pfp, messageId) {
+    const container = document.getElementById('messages-container');
     if (!container) return;
 
-    var now      = new Date();
-    var color    = getUserColor(user);
-    var timeStr  = formatTime(now);
-    var fullTs   = formatTimestamp(now);
-    var sameGroup = (
+    const now = new Date();
+    const color = getUserColor(user);
+    const timeStr = formatTime(now);
+    const fullTs = formatTimestamp(now);
+    
+    const sameGroup = (
         user === lastMsgUser &&
         lastMsgTime !== null &&
         (now.getTime() - lastMsgTime.getTime()) < GROUP_GAP_MS
     );
 
-    var div = document.createElement('div');
+    const div = document.createElement('div');
+    if (messageId) {
+        div.id = `msg-${messageId}`;
+    } else {
+        div.setAttribute('data-temp', 'true');
+        div.setAttribute('data-content', message); // To find it later
+    }
+
+    const currentUserName = document.getElementById('current-user-name')?.value || 'Unknown';
+    const isMine = user === currentUserName;
 
     if (sameGroup) {
         div.className = 'message-item continued';
-        div.innerHTML =
-            '<span class="msg-time-compact" title="' + escapeHtml(fullTs) + '">' + timeStr + '</span>' +
-            '<div class="msg-text">' + renderMessage(message) + '</div>';
+        div.innerHTML = `
+            <div class="msg-avatar-spacer">
+                <span class="msg-time-compact" title="${escapeHtml(fullTs)}">${timeStr}</span>
+            </div>
+            <div class="msg-body">
+                <div class="msg-text">${renderMessage(message)}</div>
+            </div>
+            ${(isMine && messageId) ? `<button class="delete-btn" onclick="deleteMessage(${messageId})">Delete</button>` : ''}`;
     } else {
-        var initial = (user || '?').charAt(0).toUpperCase();
-        var avatarHtml = '';
-        if (pfp) {
-            avatarHtml = '<img src="data:image/png;base64,' + pfp + '" />';
-        } else {
-            avatarHtml = '<span>' + escapeHtml(initial) + '</span>';
-        }
+        const initial = (user || '?').charAt(0).toUpperCase();
+        const avatarHtml = pfp 
+            ? `<img src="data:image/png;base64,${pfp}" />` 
+            : `<span>${escapeHtml(initial)}</span>`;
 
         div.className = 'message-item';
-        div.innerHTML =
-            '<div class="msg-avatar" style="background-color:' + (pfp ? 'transparent' : color) + '" title="' + escapeHtml(user) + '">' +
-                avatarHtml +
-            '</div>' +
-            '<div class="msg-body">' +
-                '<div class="msg-header">' +
-                    '<span class="msg-username" style="color:' + color + '">' + escapeHtml(user) + '</span>' +
-                    '<span class="msg-time" title="' + escapeHtml(fullTs) + '">Today at ' + timeStr + '</span>' +
-                '</div>' +
-                '<div class="msg-text">' + renderMessage(message) + '</div>' +
-            '</div>';
+        div.innerHTML = `
+            <div class="msg-avatar" style="background-color: ${pfp ? 'transparent' : color}" title="${escapeHtml(user)}">
+                ${avatarHtml}
+            </div>
+            <div class="msg-body">
+                <div class="msg-header">
+                    <span class="msg-username" style="color: ${color}">${escapeHtml(user)}</span>
+                    <span class="msg-time" title="${escapeHtml(fullTs)}">Today at ${timeStr}</span>
+                </div>
+                <div class="msg-text">${renderMessage(message)}</div>
+            </div>
+            ${(isMine && messageId) ? `<button class="delete-btn" onclick="deleteMessage(${messageId})">Delete</button>` : ''}`;
     }
 
     container.appendChild(div);
@@ -115,16 +128,41 @@ var connection = new signalR.HubConnectionBuilder()
     .withAutomaticReconnect()
     .build();
 
-connection.on('ReceiveMessage', function (user, message, channelId, pfp) {
+connection.on('ReceiveMessage', function (user, message, channelId, pfp, messageId) {
     // Only render if it's for the current channel
     if (channelId && channelId != currentChannelId) return;
 
-    // If this is the hub echoing back our own optimistic message, skip it.
-    if (consumePending(user, message)) return;
+    // If this is the hub echoing back our own optimistic message, update the existing element.
+    if (consumePending(user, message)) {
+        // Find the specific temp message matching the content
+        const tempMsgs = document.querySelectorAll('.message-item[data-temp="true"]');
+        let tempMsg = null;
+        for (let m of tempMsgs) {
+            if (m.getAttribute('data-content') === message) {
+                tempMsg = m;
+                break;
+            }
+        }
+
+        if (tempMsg) {
+            tempMsg.id = `msg-${messageId}`;
+            tempMsg.removeAttribute('data-temp');
+            tempMsg.removeAttribute('data-content');
+            
+            // Add the delete button now that we have an ID
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.onclick = function() { deleteMessage(messageId); };
+            deleteBtn.innerText = 'Delete';
+            deleteBtn.title = 'Delete Message';
+            tempMsg.appendChild(deleteBtn);
+        }
+        return;
+    }
 
     // Otherwise it's from another user (or the hub doesn't echo — we never
     // added it to pendingSent, so consumePending returns false and we render).
-    appendMessage(user, message, pfp);
+    appendMessage(user, message, pfp, messageId);
 });
 
 connection.start()
@@ -204,36 +242,55 @@ function setupChatInput(channelId) {
 
     setTimeout(function(){ input.focus(); }, 50);
 
-    input.addEventListener('keydown', function(e) {
-        if (e.key !== 'Enter' || e.shiftKey) return;
-        e.preventDefault();
-
-        var message = input.value.trim();
-        if (!message) return;
-
-        var userIdEl   = document.getElementById('current-user-id');
-        var userNameEl = document.getElementById('current-user-name');
-        var userPfpEl  = document.getElementById('current-user-pfp');
-        if (!userIdEl) return;
-
-        var userName = (userNameEl && userNameEl.value) ? userNameEl.value : 'Unknown';
-        var userPfp  = (userPfpEl && userPfpEl.value) ? userPfpEl.value : null;
-
-        // ── 1. Render immediately (optimistic UI) ──────────────────
-        appendMessage(userName, message, userPfp);
-
-        // ── 2. Register as pending so the hub echo is skipped ──────
-        pushPending(userName, message);
-
-        // ── 3. Send via SignalR ────────────────────────────────────
-        if (connection.state === signalR.HubConnectionState.Connected) {
-            connection.invoke('SendMessage', userIdEl.value, parseInt(channelId, 10), message)
-                .catch(function(err){ console.error('SendMessage:', err); });
+    // Auto-expand logic
+    function autoResize() {
+        // Collapse to measure true content height
+        input.style.height = '0px';
+        var scrollH = input.scrollHeight;
+        var maxH = Math.floor(window.innerHeight * 0.5);
+        if (scrollH > maxH) {
+            input.style.height = maxH + 'px';
+            input.style.overflowY = 'auto';
         } else {
-            console.warn('SignalR not connected — message rendered locally only');
+            input.style.height = scrollH + 'px';
+            input.style.overflowY = 'hidden';
         }
+    }
+    input.addEventListener('input', autoResize);
 
-        input.value = '';
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+
+            var message = input.value.trim();
+            if (!message) return;
+
+            var userIdEl   = document.getElementById('current-user-id');
+            var userNameEl = document.getElementById('current-user-name');
+            var userPfpEl  = document.getElementById('current-user-pfp');
+            if (!userIdEl) return;
+
+            var userName = (userNameEl && userNameEl.value) ? userNameEl.value : 'Unknown';
+            var userPfp  = (userPfpEl && userPfpEl.value) ? userPfpEl.value : null;
+
+            // ── 1. Render immediately (optimistic UI) ──────────────────
+            appendMessage(userName, message, userPfp);
+
+            // ── 2. Register as pending so the hub echo is skipped ──────
+            pushPending(userName, message);
+
+            // ── 3. Send via SignalR ────────────────────────────────────
+            if (connection.state === signalR.HubConnectionState.Connected) {
+                connection.invoke('SendMessage', userIdEl.value, parseInt(channelId, 10), message)
+                    .catch(function(err){ console.error('SendMessage:', err); });
+            } else {
+                console.warn('SignalR not connected — message rendered locally only');
+            }
+
+            input.value = '';
+            input.style.height = 'auto';
+            input.style.overflowY = 'hidden';
+        }
     });
 }
 
@@ -253,3 +310,18 @@ function escapeHtml(str) {
         .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
         .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
+
+
+function deleteMessage(messageId){
+    if (confirm("Are you sure you want to delete this message?")){
+        connection.invoke("DeleteMessage", messageId)
+            .catch(err=> console.error(err));
+    }
+}
+
+connection.on("MessageDeleted", function (messageId){
+    const msgElement = document.getElementById("msg-" + messageId);
+    if(msgElement){
+        msgElement.remove();
+    }
+});

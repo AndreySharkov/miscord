@@ -414,17 +414,19 @@ body {
 /* Full message (first in group) */
 .message-item {
     position: relative;
-    padding: 2px 48px 2px 72px;
+    padding: 2px 16px;
     min-height: 2.75rem;
     color: #dbdee1;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    width: 100%;
 }
 .message-item:hover { background: rgba(4,4,5,0.1); }
 .message-item:hover .msg-time, .message-item:hover .msg-time-compact { opacity: 1; }
+.message-item:hover .delete-btn { display: block; }
 
 .msg-avatar {
-    position: absolute;
-    left: 16px;
-    top: 4px;
     width: 40px;
     height: 40px;
     border-radius: 50%;
@@ -438,9 +440,15 @@ body {
     flex-shrink: 0;
     user-select: none;
     overflow: hidden;
+    margin-top: 4px;
 }
 .msg-avatar span { text-transform: uppercase; }
 .msg-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+
+.msg-body {
+    flex: 1;
+    min-width: 0;
+}
 
 .msg-header {
     display: flex;
@@ -477,18 +485,44 @@ body {
     white-space: pre-wrap;
     word-wrap: break-word;
     overflow-wrap: break-word;
+    position: relative;
+}
+
+.delete-btn {
+    position: absolute;
+    right: 16px;
+    top: 8px;
+    background: #313338;
+    border: 1px solid #1e1f22;
+    color: #ed4245;
+    padding: 2px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    display: none;
+    z-index: 10;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+.delete-btn:hover {
+    background: #ed4245;
+    color: #fff;
 }
 
 /* Continued message (same author, within 7 min) */
 .message-item.continued {
-    min-height: 1.375rem;
+    /* min-height: 1.375rem; */
     padding-top: 1px;
     padding-bottom: 1px;
 }
+.msg-avatar-spacer {
+    width: 40px;
+    flex-shrink: 0;
+    position: relative;
+}
 .message-item.continued .msg-time-compact {
     position: absolute;
-    left: 0;
-    width: 72px;
+    left: -16px;
+    width: 56px;
     text-align: center;
     font-size: 0.6875rem;
     color: #80848e;
@@ -509,10 +543,9 @@ body {
     background: #383a40;
     border-radius: 8px;
     display: flex;
-    align-items: center;
-    padding: 0 12px;
+    align-items: flex-end;
+    padding: 2px 12px;
     gap: 0;
-    min-height: 44px;
 }
 
 .chat-btn {
@@ -520,12 +553,12 @@ body {
     border: none;
     color: #80848e;
     cursor: pointer;
-    padding: 0 6px;
+    padding: 10px 6px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    height: 44px;
+    height: auto;
     transition: color 0.15s ease;
 }
 .chat-btn:hover { color: #dcddde; }
@@ -542,6 +575,9 @@ body {
     min-width: 0;
     caret-color: #dbdee1;
     font-family: inherit;
+    resize: none;
+    overflow: hidden;
+    max-height: 50vh;
 }
 .chat-input-field::placeholder { color: #4e5058; }
 

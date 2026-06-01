@@ -52,7 +52,7 @@ namespace Miscord.Client.Controllers
         public async Task<IActionResult> GetChat(int channelId)
         {
             var channel = await _context.Channels
-                .Include(c => c.Messages.OrderBy(m => m.Timestamp))
+                .Include(c => c.Messages.Where(m => !m.IsDeleted).OrderBy(m => m.Timestamp))
                 .ThenInclude(m => m.Author)
                 .FirstOrDefaultAsync(c => c.Id == channelId);
             if (channel == null)

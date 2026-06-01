@@ -31,15 +31,27 @@ namespace Miscord.Client.Hubs
             };
             _context.Messages.Add(message);
             await _context.SaveChangesAsync();
-
+    
             Console.WriteLine($"Broadcasting to Group={channelId}");
-            await Clients.Group(channelId.ToString()).SendAsync("ReceiveMessage", displayName, content, channelId, pfpBase64);
+            await Clients.Group(channelId.ToString()).SendAsync("ReceiveMessage", displayName, content, channelId, pfpBase64, message.Id);
         }
 
         public async Task JoinChannel(int channelId)
         {
             Console.WriteLine($"User {Context.ConnectionId} joining Group={channelId}");
             await Groups.AddToGroupAsync(Context.ConnectionId, channelId.ToString());
+        }
+
+        public async Task DeleteMessage(int messageId)
+        {
+            var message = await _context.Messages.FindAsync(messageId);
+            if (message != null)
+            {
+                message.IsDeleted = true;
+                await _context.SaveChangesAsync();
+                Console.WriteLine($"Message {messageId} marked as deleted.");
+                await Clients.Group(message.ChannelId.ToString()).SendAsync("MessageDeleted", messageId);
+            }
         }
     }
 }

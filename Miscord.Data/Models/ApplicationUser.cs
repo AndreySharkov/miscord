@@ -13,5 +13,8 @@ namespace Miscord.Data.Models
 
         public ICollection<Server> OwnedServers { get; set; } = new List<Server>();
         public ICollection<Message> Messages { get; set; } = new List<Message>();
+
+        public bool IsDeleted { get; set; } = false;
+
     }
 }

@@ -70,7 +70,7 @@
         var displayName = msg.Author?.Nickname ?? msg.Author?.UserName ?? "Unknown";
         var userColor = AvatarHelper.GetUserColor(displayName);
 
-        <div class="message-item @(isContinued ? "continued" : "")">
+        <div class="message-item @(isContinued ? "continued" : "")" id="msg-@msg.Id">
             @if (!isContinued)
             {
                 <div class="msg-avatar" style="background-color: @(msg.Author?.ProfilePictureData == null ? userColor : "transparent");">
@@ -93,8 +93,16 @@
             }
             else
             {
-                <div class="msg-time-compact">@msg.Timestamp.ToLocalTime().ToString("h:mm tt")</div>
-                <div class="msg-text">@msg.Content</div>
+                <div class="msg-avatar-spacer">
+                    <span class="msg-time-compact">@msg.Timestamp.ToLocalTime().ToString("h:mm tt")</span>
+                </div>
+                <div class="msg-body">
+                    <div class="msg-text">@msg.Content</div>
+                </div>
+            }
+            @if(msg.AuthorId == UserManager.GetUserId(User))
+            {
+                <button class="delete-btn" onclick="deleteMessage(@msg.Id)" title="Delete Message">Delete</button>
             }
         </div>
     }
@@ -115,13 +123,13 @@
             </svg>
         </button>
 
-        <input
-            type="text"
+        <textarea
             id="message-input"
             class="chat-input-field"
             placeholder="Message #@Model.Name"
             autocomplete="off"
-        />
+            rows="1"
+        ></textarea>
 
         <!-- Emoji picker button -->
         <button class="chat-btn" title="Open Emoji Picker" type="button">
