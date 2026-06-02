@@ -63,16 +63,21 @@ namespace Miscord.Client.Controllers
         public async Task<IActionResult> GetChat(int channelId)
         {
             var channel = await _context.Channels
-                .Include(c => c.Messages.Where(m => !m.IsDeleted).OrderBy(m => m.Timestamp))
+                .Include(c => c.Messages.OrderByDescending(m => m.Timestamp).Take(100))
                     .ThenInclude(m => m.Author)
-                .Include(c => c.Messages.Where(m => !m.IsDeleted).OrderBy(m => m.Timestamp))
+                .Include(c => c.Messages.OrderByDescending(m => m.Timestamp).Take(100))
                     .ThenInclude(m => m.ParentMessage)
                         .ThenInclude(pm => pm.Author)
                 .FirstOrDefaultAsync(c => c.Id == channelId);
+                
             if (channel == null)
             {
                 return NotFound();
             }
+
+            // Reverse messages back to chronological order for the UI
+            channel.Messages = channel.Messages.OrderBy(m => m.Timestamp).ToList();
+            
             return PartialView("_ChatArea", channel);
         }
 
@@ -147,9 +152,9 @@ namespace Miscord.Client.Controllers
                 message.Id,
                 message.AttachmentFileName,
                 message.AttachmentContentType,
+                parentMessageId,
                 parentMessageContent,
-                parentMessageAuthor,
-                parentAuthorPfp
+                parentMessageAuthor + "|" + (parentAuthorPfp != null ? Convert.ToBase64String(parentAuthorPfp) : "") + "|" + userId
             );
 
             return Ok(new { messageId = message.Id });
@@ -164,6 +169,17 @@ namespace Miscord.Client.Controllers
                 return NotFound();
             }
             return File(message.AttachmentData, message.AttachmentContentType ?? "application/octet-stream", message.AttachmentFileName);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetProfilePicture(string userId)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null || user.ProfilePictureData == null)
+            {
+                return NotFound();
+            }
+            return File(user.ProfilePictureData, "image/png");
         }
 
         [HttpPost]

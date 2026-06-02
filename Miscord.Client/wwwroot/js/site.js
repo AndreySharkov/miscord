@@ -35,7 +35,6 @@ var currentChannelId = null;
 var stagedReplyToId = null;
 
 // ─── Dedup: optimistic sends we haven't seen echoed back yet ───────
-// Stored as { user, message, expireAt }
 var pendingSent = [];
 
 function pushPending(user, message) {
@@ -43,20 +42,19 @@ function pushPending(user, message) {
 }
 
 function consumePending(user, message) {
-    // Purge expired entries first
     var now = Date.now();
     pendingSent = pendingSent.filter(function(p){ return p.expireAt > now; });
     for (var i = 0; i < pendingSent.length; i++) {
         if (pendingSent[i].user === user && pendingSent[i].message === message) {
             pendingSent.splice(i, 1);
-            return true; // was our own echo — skip rendering
+            return true; 
         }
     }
     return false;
 }
 
 // ─── Core: append one message to the container ────────────────────
-function appendMessage(user, message, pfp, messageId, attachmentFileName, attachmentContentType, parentMessageId, parentContent, parentAuthorName, parentAuthorPfp) {
+function appendMessage(user, message, pfp, messageId, attachmentFileName, attachmentContentType, parentMessageId, parentContent, parentAuthorRaw, userIdFallback) {
     const container = document.getElementById('messages-container');
     if (!container) return;
 
@@ -65,7 +63,19 @@ function appendMessage(user, message, pfp, messageId, attachmentFileName, attach
     const timeStr = formatTime(now);
     const fullTs = formatTimestamp(now);
 
-    // Do not group if it's a reply
+    // Split parentAuthorName|parentAuthorPfp|currentUserId
+    let parentAuthorName = '';
+    let parentAuthorPfp = '';
+    let currentUserId = userIdFallback || '';
+    
+    if (parentAuthorRaw && parentAuthorRaw.includes('|')) {
+        const parts = parentAuthorRaw.split('|');
+        parentAuthorName = parts[0];
+        parentAuthorPfp = parts[1];
+        // Only take userId from packed string if it's actually there
+        if (parts[2]) currentUserId = parts[2];
+    }
+
     const isReply = !!parentMessageId;
     const sameGroup = (
         user === lastMsgUser &&
@@ -79,7 +89,7 @@ function appendMessage(user, message, pfp, messageId, attachmentFileName, attach
         if (attachmentContentType && attachmentContentType.startsWith('image/')) {
             attachmentHtml = `
                 <div class="msg-attachment">
-                    <img src="/Server/GetAttachment?messageId=${messageId}" class="attachment-image" alt="${escapeHtml(attachmentFileName)}" />
+                    <img src="/Server/GetAttachment?messageId=${messageId}" class="attachment-image" alt="${escapeHtml(attachmentFileName)}" loading="lazy" />
                 </div>`;
         } else {
             attachmentHtml = `
@@ -93,62 +103,50 @@ function appendMessage(user, message, pfp, messageId, attachmentFileName, attach
                             <a href="/Server/GetAttachment?messageId=${messageId}" class="attachment-file-link" target="_blank">${escapeHtml(attachmentFileName)}</a>
                             <span class="attachment-file-size">Attachment</span>
                         </div>
-                        <a href="/Server/GetAttachment?messageId=${messageId}" class="attachment-download-btn" download="${escapeHtml(attachmentFileName)}" title="Download">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-                            </svg>
-                        </a>
                     </div>
                 </div>`;
         }
+    } else if (messageId === undefined && attachmentFileName === null) {
+        attachmentHtml = `<div class="msg-attachment" style="opacity: 0.5;">Uploading file...</div>`;
     }
 
     const div = document.createElement('div');
-    if (messageId) {
-        div.id = `msg-${messageId}`;
-    } else {
+    if (messageId) div.id = `msg-${messageId}`;
+    else {
         div.setAttribute('data-temp', 'true');
-        div.setAttribute('data-content', message); // To find it later
+        div.setAttribute('data-content', message);
     }
 
     const currentUserName = document.getElementById('current-user-name')?.value || 'Unknown';
     const isMine = user === currentUserName;
 
-    // Actions bar html
     const actionsBarHtml = messageId ? `
         <div class="message-actions-bar">
-            <button class="action-bar-btn reaction-btn" onclick="showQuickReactions(${messageId}, this)" title="Add Reaction">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>
-                </svg>
-            </button>
-            <button class="action-bar-btn reply-btn" onclick="stageReply(${messageId}, '${escapeHtml(user)}')" title="Reply">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>
-                </svg>
-            </button>
-            <button class="action-bar-btn copy-btn" onclick="copyMessageText(${messageId})" title="Copy Text">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                </svg>
-            </button>
-            ${isMine ? `
-            <button class="action-bar-btn delete-btn" onclick="deleteMessage(${messageId})" title="Delete Message">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
-                </svg>
-            </button>` : ''}
+            <button class="action-bar-btn reaction-btn" onclick="showQuickReactions(${messageId}, this)" title="Add Reaction"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
+            <button class="action-bar-btn reply-btn" onclick="stageReply(${messageId}, '${escapeHtml(user)}')" title="Reply"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
+            <button class="action-bar-btn copy-btn" onclick="copyMessageText(${messageId})" title="Copy Text"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+            ${isMine ? `<button class="action-bar-btn delete-btn" onclick="deleteMessage(${messageId})" title="Delete Message"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button>` : ''}
         </div>` : '';
 
-    // Reply parent row html
     let replyHtml = '';
     if (isReply) {
-        const parentAvatarHtml = parentAuthorPfp 
-            ? `<img class="reply-parent-avatar" src="data:image/png;base64,${parentAuthorPfp}" />` 
+        // Find the user ID of the parent from the UI if possible to use URL avatar
+        let parentUid = '';
+        if (parentAuthorRaw && parentAuthorRaw.includes('||')) {
+            parentUid = parentAuthorRaw.split('||')[1];
+        } else {
+            const parentEl = document.getElementById('msg-' + parentMessageId);
+            if (parentEl) {
+                parentUid = parentEl.querySelector('.msg-avatar')?.getAttribute('data-userid') || '';
+            }
+        }
+
+        const parentAvatarHtml = (parentAuthorPfp || parentUid)
+            ? `<img class="reply-parent-avatar" src="/Server/GetProfilePicture?userId=${parentUid}" loading="lazy" />` 
             : `<div class="reply-parent-avatar" style="background-color: ${getUserColor(parentAuthorName)}; width:16px; height:16px; border-radius:50%; display:inline-block;"></div>`;
 
         replyHtml = `
-            <div class="reply-parent-reference" onclick="scrollToMessage(${parentMessageId})">
+            <div class="reply-parent-reference" ${parentMessageId ? `onclick="scrollToMessage(${parentMessageId})"` : ''}>
                 ${parentAvatarHtml}
                 <span class="reply-parent-username" style="color: ${getUserColor(parentAuthorName)}">${escapeHtml(parentAuthorName)}</span>
                 <span class="reply-parent-text">${escapeHtml(parentContent)}</span>
@@ -159,41 +157,44 @@ function appendMessage(user, message, pfp, messageId, attachmentFileName, attach
         div.className = 'message-item continued';
         div.innerHTML = `
             ${actionsBarHtml}
-            <div class="msg-avatar-spacer">
-                <span class="msg-time-compact" title="${escapeHtml(fullTs)}">${timeStr}</span>
-            </div>
-            <div class="msg-body">
-                <div class="msg-text">${renderMessage(message)}</div>
-                <div class="reactions-container" id="reactions-${messageId}"></div>
-                ${attachmentHtml}
+            ${replyHtml}
+            <div class="message-content-row">
+                <div class="msg-avatar-spacer">
+                    <span class="msg-time-compact" title="${escapeHtml(fullTs)}">${timeStr}</span>
+                </div>
+                <div class="msg-body">
+                    <div class="msg-text">${renderMessage(message)}</div>
+                    <div class="reactions-container" id="reactions-${messageId}"></div>
+                    ${attachmentHtml}
+                </div>
             </div>`;
     } else {
         const initial = (user || '?').charAt(0).toUpperCase();
-        const avatarHtml = pfp 
-            ? `<img src="data:image/png;base64,${pfp}" />` 
+        const avatarHtml = currentUserId 
+            ? `<img src="/Server/GetProfilePicture?userId=${currentUserId}" loading="lazy" />` 
             : `<span>${escapeHtml(initial)}</span>`;
 
         div.className = 'message-item' + (isReply ? ' has-reply' : '');
         div.innerHTML = `
             ${actionsBarHtml}
             ${replyHtml}
-            <div class="msg-avatar" style="background-color: ${pfp ? 'transparent' : color}" title="${escapeHtml(user)}">
-                ${avatarHtml}
-            </div>
-            <div class="msg-body">
-                <div class="msg-header">
-                    <span class="msg-username" style="color: ${color}">${escapeHtml(user)}</span>
-                    <span class="msg-time" title="${escapeHtml(fullTs)}">Today at ${timeStr}</span>
+            <div class="message-content-row">
+                <div class="msg-avatar" data-userid="${currentUserId}" style="background-color: ${currentUserId ? 'transparent' : color}" title="${escapeHtml(user)}">
+                    ${avatarHtml}
                 </div>
-                <div class="msg-text">${renderMessage(message)}</div>
-                <div class="reactions-container" id="reactions-${messageId}"></div>
-                ${attachmentHtml}
+                <div class="msg-body">
+                    <div class="msg-header">
+                        <span class="msg-username" style="color: ${color}">${escapeHtml(user)}</span>
+                        <span class="msg-time" title="${escapeHtml(fullTs)}">Today at ${timeStr}</span>
+                    </div>
+                    <div class="msg-text">${renderMessage(message)}</div>
+                    <div class="reactions-container" id="reactions-${messageId}"></div>
+                    ${attachmentHtml}
+                </div>
             </div>`;
     }
 
     container.appendChild(div);
-
-    // Auto-scroll only if user is near the bottom (≤ 200px away)
     var gap = container.scrollHeight - container.scrollTop - container.clientHeight;
     if (gap < 200) container.scrollTop = container.scrollHeight;
 
@@ -207,13 +208,10 @@ var connection = new signalR.HubConnectionBuilder()
     .withAutomaticReconnect()
     .build();
 
-connection.on('ReceiveMessage', function (user, message, channelId, pfp, messageId, attachmentFileName, attachmentContentType, parentMessageId, parentContent, parentAuthorName, parentAuthorPfp) {
-    // Only render if it's for the current channel
+connection.on('ReceiveMessage', function (user, message, channelId, pfp, messageId, attachmentFileName, attachmentContentType, parentMessageId, parentContent, parentAuthorRaw) {
     if (channelId && channelId != currentChannelId) return;
 
-    // If this is the hub echoing back our own optimistic message, update the existing element.
     if (consumePending(user, message)) {
-        // Find the specific temp message matching the content
         const tempMsgs = document.querySelectorAll('.message-item[data-temp="true"]');
         let tempMsg = null;
         for (let m of tempMsgs) {
@@ -228,127 +226,110 @@ connection.on('ReceiveMessage', function (user, message, channelId, pfp, message
             tempMsg.removeAttribute('data-temp');
             tempMsg.removeAttribute('data-content');
 
-            // Add the rich actions bar now that we have an ID
             const currentUserName = document.getElementById('current-user-name')?.value || 'Unknown';
             const isMine = user === currentUserName;
 
             const actionsBar = document.createElement('div');
             actionsBar.className = 'message-actions-bar';
             actionsBar.innerHTML = `
-                <button class="action-bar-btn reaction-btn" onclick="showQuickReactions(${messageId}, this)" title="Add Reaction">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>
-                    </svg>
-                </button>
-                <button class="action-bar-btn reply-btn" onclick="stageReply(${messageId}, '${escapeHtml(user)}')" title="Reply">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>
-                    </svg>
-                </button>
-                <button class="action-bar-btn copy-btn" onclick="copyMessageText(${messageId})" title="Copy Text">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                    </svg>
-                </button>
-                ${isMine ? `
-                <button class="action-bar-btn delete-btn" onclick="deleteMessage(${messageId})" title="Delete Message">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
-                    </svg>
-                </button>` : ''}`;
+                <button class="action-bar-btn reaction-btn" onclick="showQuickReactions(${messageId}, this)" title="Add Reaction"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
+                <button class="action-bar-btn reply-btn" onclick="stageReply(${messageId}, '${escapeHtml(user)}')" title="Reply"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
+                <button class="action-bar-btn copy-btn" onclick="copyMessageText(${messageId})" title="Copy Text"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                ${isMine ? `<button class="action-bar-btn delete-btn" onclick="deleteMessage(${messageId})" title="Delete Message"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button>` : ''}`;
             tempMsg.insertBefore(actionsBar, tempMsg.firstChild);
 
-            // Add reactions list placeholder
-            const body = tempMsg.querySelector('.msg-body');
-            if (body) {
+            if (parentMessageId) {
+                const ref = tempMsg.querySelector('.reply-parent-reference');
+                if (ref) ref.setAttribute('onclick', `scrollToMessage(${parentMessageId})`);
+            }
+
+            if (attachmentFileName) {
+                const body = tempMsg.querySelector('.msg-body');
+                if (body) {
+                    const oldAttach = body.querySelector('.msg-attachment');
+                    if (oldAttach) oldAttach.remove();
+
+                    let attachmentHtml = `
+                        <div class="msg-attachment">
+                            ${attachmentContentType && attachmentContentType.startsWith('image/') 
+                                ? `<img src="/Server/GetAttachment?messageId=${messageId}" class="attachment-image" alt="${escapeHtml(attachmentFileName)}" loading="lazy" />`
+                                : `<div class="attachment-file-box">
+                                    <svg class="file-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
+                                    <div class="attachment-file-info">
+                                        <a href="/Server/GetAttachment?messageId=${messageId}" class="attachment-file-link" target="_blank">${escapeHtml(attachmentFileName)}</a>
+                                        <span class="attachment-file-size">Attachment</span>
+                                    </div>
+                                   </div>`
+                            }
+                        </div>`;
+                    body.insertAdjacentHTML('beforeend', attachmentHtml);
+                }
+            }
+
+            const bodyDiv = tempMsg.querySelector('.msg-body');
+            if (bodyDiv && !document.getElementById(`reactions-${messageId}`)) {
                 const rList = document.createElement('div');
                 rList.className = 'reactions-container';
                 rList.id = `reactions-${messageId}`;
-                body.insertBefore(rList, body.querySelector('.msg-attachment') || null);
+                bodyDiv.insertBefore(rList, bodyDiv.querySelector('.msg-attachment') || null);
             }
         }
         return;
     }
 
-    // Otherwise it's from another user (or the hub doesn't echo — we never
-    // added it to pendingSent, so consumePending returns false and we render).
-    appendMessage(user, message, pfp, messageId, attachmentFileName, attachmentContentType, parentMessageId, parentContent, parentAuthorName, parentAuthorPfp);
+    appendMessage(user, message, pfp, messageId, attachmentFileName, attachmentContentType, parentMessageId, parentContent, parentAuthorRaw);
 });
 
 connection.on('ReceiveError', function (error) {
     alert('Error: ' + error);
-    // Remove the optimistic message if it exists
     const tempMsgs = document.querySelectorAll('.message-item[data-temp="true"]');
-    if (tempMsgs.length > 0) {
-        tempMsgs[tempMsgs.length - 1].remove();
-    }
+    if (tempMsgs.length > 0) tempMsgs[tempMsgs.length - 1].remove();
 });
 
-connection.start()
-    .then(function() {
-        console.log('SignalR connected');
-        if (currentChannelId) {
-            connection.invoke('JoinChannel', parseInt(currentChannelId, 10))
-                .catch(function(err){ console.error('JoinChannel error:', err); });
-        }
-    })
-    .catch(function(err) { console.error('SignalR start error:', err); });
+connection.start().then(function() {
+    if (currentChannelId) connection.invoke('JoinChannel', parseInt(currentChannelId, 10));
+});
 
 // ─── Server / Channel Loading ──────────────────────────────────────
 function loadServer(serverId, el) {
-    document.querySelectorAll('.server-icon-wrapper').forEach(function(w){ w.classList.remove('active'); });
-    if (el) {
-        var wr = el.closest ? el.closest('.server-icon-wrapper') : null;
-        if (wr) wr.classList.add('active');
-    }
+    document.querySelectorAll('.server-icon-wrapper').forEach(w => w.classList.remove('active'));
+    if (el) el.closest('.server-icon-wrapper')?.classList.add('active');
 
     fetch('/Server/GetChannels/' + serverId)
-        .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
-        .then(function(html){
-            var list = document.querySelector('.channel-list');
+        .then(r => r.text())
+        .then(html => {
+            const list = document.querySelector('.channel-list');
             if (list) list.innerHTML = html;
-        })
-        .catch(function(err){ console.error('GetChannels:', err); });
+        });
 
-    var main = document.querySelector('.main-content');
-    if (main) main.innerHTML =
-        '<div class="empty-main">' +
-            '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>' +
-            '<span class="empty-main-title">No channel open</span>' +
-            '<span class="empty-main-text">Select a channel on the left to start chatting.</span>' +
-        '</div>';
-
+    const main = document.querySelector('.main-content');
+    if (main) main.innerHTML = '<div class="empty-main"><span class="empty-main-title">No channel open</span></div>';
     lastMsgUser = null; lastMsgTime = null;
 }
 
 function loadChannel(channelId) {
-    // Mark active sidebar item
-    document.querySelectorAll('.channel-item').forEach(function(c){ c.classList.remove('active'); });
-    document.querySelectorAll('.channel-item').forEach(function(item){
-        var oc = item.getAttribute('onclick') || '';
-        if (oc.indexOf('loadChannel(' + channelId + ')') !== -1) item.classList.add('active');
+    document.querySelectorAll('.channel-item').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('.channel-item').forEach(item => {
+        if ((item.getAttribute('onclick') || '').includes('loadChannel(' + channelId + ')')) item.classList.add('active');
     });
 
     currentChannelId = channelId;
     stagedReplyToId = null;
-    const replyBar = document.getElementById('reply-preview-bar');
-    if (replyBar) replyBar.style.display = 'none';
+    const rb = document.getElementById('reply-preview-bar');
+    if (rb) rb.style.display = 'none';
 
     fetch('/Server/GetChat?channelId=' + channelId)
-        .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
-        .then(function(html){
-            var main = document.querySelector('.main-content');
+        .then(r => r.text())
+        .then(html => {
+            const main = document.querySelector('.main-content');
             if (main) { 
                 main.innerHTML = html; 
                 setupChatInput(channelId);
-                if (connection.state === signalR.HubConnectionState.Connected) {
-                    connection.invoke('JoinChannel', parseInt(channelId, 10))
-                        .catch(function(err){ console.error('JoinChannel error:', err); });
-                }
+                const container = document.getElementById('messages-container');
+                if (container) container.scrollTop = container.scrollHeight;
+                if (connection.state === 'Connected' || connection.state === 1) connection.invoke('JoinChannel', parseInt(channelId, 10));
             }
-        })
-        .catch(function(err){ console.error('GetChat:', err); });
-
+        });
     lastMsgUser = null; lastMsgTime = null;
 }
 
@@ -357,12 +338,10 @@ function setupChatInput(channelId) {
     var input = document.getElementById('message-input');
     if (!input) return;
 
-    // Remove any old listeners by cloning the node
     var fresh = input.cloneNode(true);
     input.parentNode.replaceChild(fresh, input);
     input = fresh;
-
-    setTimeout(function(){ input.focus(); }, 50);
+    setTimeout(() => input.focus(), 50);
 
     const attachmentInput = document.getElementById('attachment-input');
     const uploadPreviewArea = document.getElementById('upload-preview-area');
@@ -371,391 +350,163 @@ function setupChatInput(channelId) {
     let selectedFile = null;
 
     if (attachmentInput) {
-        // Reset file input in case it was dirty
-        attachmentInput.value = '';
-        selectedFile = null;
-        if (uploadPreviewArea) uploadPreviewArea.style.display = 'none';
-
-        attachmentInput.addEventListener('change', function() {
-            if (attachmentInput.files && attachmentInput.files[0]) {
+        attachmentInput.addEventListener('change', () => {
+            if (attachmentInput.files?.[0]) {
                 selectedFile = attachmentInput.files[0];
                 renderUploadPreview(selectedFile);
             }
         });
     }
 
-    // Drag & Drop Event Handling
-    const mainContent = document.querySelector('.main-content');
-    const dragDropOverlay = document.getElementById('drag-drop-overlay');
-
-    if (mainContent && dragDropOverlay) {
-        let dragCounter = 0;
-
-        mainContent.addEventListener('dragenter', function(e) {
-            e.preventDefault();
-            dragCounter++;
-            if (dragCounter === 1) {
-                dragDropOverlay.style.display = 'flex';
-            }
-        });
-
-        mainContent.addEventListener('dragover', function(e) {
-            e.preventDefault();
-        });
-
-        mainContent.addEventListener('dragleave', function(e) {
-            e.preventDefault();
-            dragCounter--;
-            if (dragCounter === 0) {
-                dragDropOverlay.style.display = 'none';
-            }
-        });
-
-        mainContent.addEventListener('drop', function(e) {
-            e.preventDefault();
-            dragCounter = 0;
-            dragDropOverlay.style.display = 'none';
-
-            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                selectedFile = e.dataTransfer.files[0];
-                renderUploadPreview(selectedFile);
-                if (attachmentInput) {
-                    attachmentInput.value = ''; // Clear file input in case it was set
-                }
-            }
-        });
-    }
-
     function renderUploadPreview(file) {
-        if (!uploadPreviewArea || !previewContainer) return;
         previewContainer.innerHTML = '';
-
         const isImage = file.type.startsWith('image/');
-        const fileSizeKB = (file.size / 1024).toFixed(1);
-
         const previewItem = document.createElement('div');
-        previewItem.style.position = 'relative';
-        previewItem.style.display = 'flex';
-        previewItem.style.alignItems = 'center';
-        previewItem.style.gap = '12px';
+        previewItem.style = 'display:flex;align-items:center;gap:12px;position:relative;';
 
         if (isImage) {
             const img = document.createElement('img');
             img.src = URL.createObjectURL(file);
             img.className = 'preview-thumbnail';
-            img.onload = function() {
-                URL.revokeObjectURL(img.src); // release memory
-            };
+            img.onload = () => URL.revokeObjectURL(img.src);
             previewItem.appendChild(img);
         } else {
-            const iconDiv = document.createElement('div');
-            iconDiv.className = 'preview-file-icon';
-            iconDiv.innerHTML = `
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <polyline points="14 2 14 8 20 8" />
-                </svg>`;
-            previewItem.appendChild(iconDiv);
+            previewItem.insertAdjacentHTML('beforeend', '<div class="preview-file-icon">FILE</div>');
         }
 
-        const infoDiv = document.createElement('div');
-        infoDiv.className = 'preview-info';
-        infoDiv.innerHTML = `
-            <span class="preview-filename" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>
-            <span class="preview-filesize">${fileSizeKB} KB</span>`;
-        previewItem.appendChild(infoDiv);
-
+        previewItem.insertAdjacentHTML('beforeend', `<div class="preview-info"><span class="preview-filename">${escapeHtml(file.name)}</span></div>`);
         const removeBtn = document.createElement('button');
-        removeBtn.className = 'preview-remove-btn';
-        removeBtn.innerHTML = '×';
-        removeBtn.type = 'button';
-        removeBtn.addEventListener('click', function() {
-            selectedFile = null;
-            attachmentInput.value = '';
-            uploadPreviewArea.style.display = 'none';
-            previewContainer.innerHTML = '';
-            input.focus();
-        });
+        removeBtn.className = 'preview-remove-btn'; removeBtn.innerText = '×';
+        removeBtn.onclick = () => { selectedFile = null; uploadPreviewArea.style.display = 'none'; };
         previewItem.appendChild(removeBtn);
-
         previewContainer.appendChild(previewItem);
         uploadPreviewArea.style.display = 'flex';
-        
-        // Auto-expand preview area in case chat scrolls
-        const chatContainer = document.getElementById('messages-container');
-        if (chatContainer) {
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
     }
 
-    // Auto-expand logic
-    function autoResize() {
-        // Collapse to measure true content height
-        input.style.height = '0px';
-        var scrollH = input.scrollHeight;
-        var maxH = Math.floor(window.innerHeight * 0.5);
-        if (scrollH > maxH) {
-            input.style.height = maxH + 'px';
-            input.style.overflowY = 'auto';
-        } else {
-            input.style.height = scrollH + 'px';
-            input.style.overflowY = 'hidden';
-        }
-    }
-    input.addEventListener('input', autoResize);
-
-    input.addEventListener('keydown', function(e) {
+    input.addEventListener('keydown', e => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-
-            var message = input.value.trim();
+            const message = input.value.trim();
             if (!message && !selectedFile) return;
 
-            var userIdEl   = document.getElementById('current-user-id');
-            var userNameEl = document.getElementById('current-user-name');
-            var userPfpEl  = document.getElementById('current-user-pfp');
-            if (!userIdEl) return;
+            const userId = document.getElementById('current-user-id')?.value;
+            const userName = document.getElementById('current-user-name')?.value || 'Unknown';
+            const userPfp = document.getElementById('current-user-pfp')?.value;
 
-            var userName = (userNameEl && userNameEl.value) ? userNameEl.value : 'Unknown';
-            var userPfp  = (userPfpEl && userPfpEl.value) ? userPfpEl.value : null;
-
-            if (selectedFile || stagedReplyToId) {
-                // If there is a file or a reply, we upload via HTTP POST instead of SignalR direct call
-                var formData = new FormData();
-                formData.append('content', message);
-                formData.append('channelId', parseInt(channelId, 10));
-                formData.append('userId', userIdEl.value);
-                
-                if (selectedFile) {
-                    formData.append('attachment', selectedFile);
-                }
-                if (stagedReplyToId) {
-                    formData.append('parentMessageId', stagedReplyToId);
-                }
-
-                // Show visual feedback that it is uploading
-                if (uploadPreviewArea && selectedFile) {
-                    uploadPreviewArea.style.opacity = '0.5';
-                }
-
-                fetch('/Server/PostMessage', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(function(r) {
-                    if (!r.ok) {
-                        return r.text().then(function(err) { throw new Error(err || 'Failed to send message'); });
-                    }
-                    return r.json();
-                })
-                .then(function(data) {
-                    // Success! Clear state
-                    selectedFile = null;
-                    stagedReplyToId = null;
-                    if (attachmentInput) attachmentInput.value = '';
-                    if (uploadPreviewArea) {
-                        uploadPreviewArea.style.display = 'none';
-                        uploadPreviewArea.style.opacity = '1';
-                    }
-                    const replyBar = document.getElementById('reply-preview-bar');
-                    if (replyBar) replyBar.style.display = 'none';
-                })
-                .catch(function(err) {
-                    alert('Error sending message: ' + err.message);
-                    if (uploadPreviewArea) {
-                        uploadPreviewArea.style.opacity = '1';
-                    }
-                });
-
-            } else {
-                // ── 1. Render immediately (optimistic UI) ──────────────────
-                appendMessage(userName, message, userPfp);
-
-                // ── 2. Register as pending so the hub echo is skipped ──────
-                pushPending(userName, message);
-
-                // ── 3. Send via SignalR ────────────────────────────────────
-                if (connection.state === signalR.HubConnectionState.Connected) {
-                    connection.invoke('SendMessage', userIdEl.value, parseInt(channelId, 10), message)
-                        .catch(function(err){ console.error('SendMessage:', err); });
-                } else {
-                    console.warn('SignalR not connected — message rendered locally only');
+            let parentContent = null, parentAuthorRaw = null;
+            if (stagedReplyToId) {
+                const pEl = document.getElementById('msg-' + stagedReplyToId);
+                if (pEl) {
+                    parentContent = pEl.querySelector('.msg-text')?.innerText || '';
+                    const parentName = pEl.querySelector('.msg-username')?.innerText || 'Unknown';
+                    const parentUid = pEl.querySelector('.msg-avatar')?.getAttribute('data-userid') || '';
+                    parentAuthorRaw = parentName + "||" + parentUid;
                 }
             }
 
+            appendMessage(userName, message, userPfp, undefined, selectedFile ? null : undefined, null, stagedReplyToId, parentContent, parentAuthorRaw, userId);
+            pushPending(userName, message);
+
+            if (selectedFile || stagedReplyToId) {
+                const fd = new FormData();
+                fd.append('content', message);
+                fd.append('channelId', channelId);
+                fd.append('userId', userId);
+                if (selectedFile) fd.append('attachment', selectedFile);
+                if (stagedReplyToId) fd.append('parentMessageId', stagedReplyToId);
+
+                fetch('/Server/PostMessage', { method: 'POST', body: fd }).then(r => r.json()).then(() => {
+                    selectedFile = null; stagedReplyToId = null;
+                    if (uploadPreviewArea) uploadPreviewArea.style.display = 'none';
+                    const rpb = document.getElementById('reply-preview-bar');
+                    if (rpb) rpb.style.display = 'none';
+                });
+            } else {
+                if (connection.state === 'Connected' || connection.state === 1) {
+                    connection.invoke('SendMessage', userId, parseInt(channelId), message);
+                }
+            }
             input.value = '';
-            input.style.height = 'auto';
-            input.style.overflowY = 'hidden';
         }
     });
 }
 
-// ─── Minimal markdown renderer ─────────────────────────────────────
 function renderMessage(raw) {
-    var s = escapeHtml(raw);
+    let s = escapeHtml(raw);
     s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    s = s.replace(/\*(.+?)\*/g,     '<em>$1</em>');
-    s = s.replace(/_(.+?)_/g,       '<em>$1</em>');
-    s = s.replace(/`([^`]+)`/g,     '<code style="background:#2b2d31;padding:0 4px;border-radius:3px;font-size:.875em;font-family:monospace">$1</code>');
-    s = s.replace(/~~(.+?)~~/g,     '<del>$1</del>');
+    s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    s = s.replace(/`([^`]+)`/g, '<code style="background:#2b2d31;padding:0 4px;border-radius:3px;">$1</code>');
     return s;
 }
 
 function escapeHtml(str) {
-    return String(str)
-        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+function deleteMessage(id) { if(confirm("Delete?")) connection.invoke("DeleteMessage", id); }
 
-function deleteMessage(messageId){
-    if (confirm("Are you sure you want to delete this message?")){
-        connection.invoke("DeleteMessage", messageId)
-            .catch(err=> console.error(err));
-    }
-}
+connection.on("MessageDeleted", id => document.getElementById("msg-" + id)?.remove());
 
-connection.on("MessageDeleted", function (messageId){
-    const msgElement = document.getElementById("msg-" + messageId);
-    if(msgElement){
-        msgElement.remove();
-    }
-});
+function copyMessageText(id) { navigator.clipboard.writeText(document.querySelector(`#msg-${id} .msg-text`).innerText); }
 
-// ─── Clipboard Copy Helper ─────────────────────────────────────────
-function copyMessageText(messageId) {
-    const msgEl = document.querySelector(`#msg-${messageId} .msg-text`);
-    if (msgEl) {
-        const text = msgEl.innerText;
-        navigator.clipboard.writeText(text).then(function() {
-            console.log('Copied message text:', text);
-        }).catch(function(err) {
-            console.error('Failed to copy text: ', err);
-        });
+function scrollToMessage(id) {
+    const el = document.getElementById('msg-' + id);
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('replying-to');
+        setTimeout(() => el.classList.remove('replying-to'), 2000);
     }
 }
 
-// ─── Reply Helpers ─────────────────────────────────────────────────
-function stageReply(messageId, username) {
-    stagedReplyToId = messageId;
-    const replyBar = document.getElementById('reply-preview-bar');
-    const targetUser = document.getElementById('reply-target-username');
-    if (replyBar && targetUser) {
-        targetUser.innerText = '@' + username;
-        replyBar.style.display = 'flex';
-    }
-    const input = document.getElementById('message-input');
-    if (input) input.focus();
+function stageReply(id, user) {
+    stagedReplyToId = id;
+    const tun = document.getElementById('reply-target-username');
+    if (tun) tun.innerText = '@' + user;
+    const rpb = document.getElementById('reply-preview-bar');
+    if (rpb) rpb.style.display = 'flex';
+    document.getElementById('msg-' + id)?.classList.add('replying-to');
+    document.getElementById('message-input').focus();
 }
 
 function cancelReply() {
+    document.getElementById('msg-' + stagedReplyToId)?.classList.remove('replying-to');
     stagedReplyToId = null;
-    const replyBar = document.getElementById('reply-preview-bar');
-    if (replyBar) {
-        replyBar.style.display = 'none';
-    }
-    const input = document.getElementById('message-input');
-    if (input) input.focus();
+    const rpb = document.getElementById('reply-preview-bar');
+    if (rpb) rpb.style.display = 'none';
 }
 
-// ─── Reactions Helpers ─────────────────────────────────────────────
-function showQuickReactions(messageId, btn) {
-    // Remove any existing quick emoji popovers
-    const existing = document.querySelector('.quick-emoji-popover');
-    if (existing) {
-        existing.remove();
-        if (existing.getAttribute('data-message-id') === String(messageId)) return;
-    }
-
-    const popover = document.createElement('div');
-    popover.className = 'quick-emoji-popover';
-    popover.setAttribute('data-message-id', messageId);
-
-    const emojis = ['👍', '❤️', '😂', '🔥'];
-    emojis.forEach(function(emoji) {
-        const btnEmoji = document.createElement('button');
-        btnEmoji.className = 'quick-emoji-btn';
-        btnEmoji.innerText = emoji;
-        btnEmoji.type = 'button';
-        btnEmoji.addEventListener('click', function() {
-            toggleReaction(messageId, emoji);
-            popover.remove();
-        });
-        popover.appendChild(btnEmoji);
+function showQuickReactions(id, btn) {
+    const pop = document.createElement('div');
+    pop.className = 'quick-emoji-popover';
+    ['👍', '❤️', '😂', '🔥'].forEach(emoji => {
+        const b = document.createElement('button');
+        b.className = 'quick-emoji-btn'; b.innerText = emoji;
+        b.onclick = () => { toggleReaction(id, emoji); pop.remove(); };
+        pop.appendChild(b);
     });
-
-    document.body.appendChild(popover);
-
-    // Position popover perfectly above the button
-    const rect = btn.getBoundingClientRect();
-    popover.style.left = (rect.left + window.scrollX - 40) + 'px';
-    popover.style.top = (rect.top + window.scrollY - 46) + 'px';
-
-    // Close when clicking outside
-    setTimeout(function() {
-        const closeHandler = function(e) {
-            if (!popover.contains(e.target) && e.target !== btn) {
-                popover.remove();
-                document.removeEventListener('click', closeHandler);
-            }
-        };
-        document.addEventListener('click', closeHandler);
-    }, 50);
+    document.body.appendChild(pop);
+    const r = btn.getBoundingClientRect();
+    pop.style.left = (r.left + window.scrollX - 40) + 'px';
+    pop.style.top = (r.top + window.scrollY - 46) + 'px';
 }
 
-function toggleReaction(messageId, emoji) {
-    const formData = new FormData();
-    formData.append('messageId', messageId);
-    formData.append('emoji', emoji);
-
-    // Invoke via HTTP endpoint (to teach backend implementation)
-    fetch('/Server/ToggleReaction', {
-        method: 'POST',
-        body: formData
-    })
-    .then(function(r) {
-        if (!r.ok) {
-            console.warn('Reaction endpoint not yet handled by backend.');
-        }
-    })
-    .catch(function(err) {
-        console.error('Reaction toggle error:', err);
-    });
+function toggleReaction(id, emoji) {
+    const fd = new FormData(); fd.append('messageId', id); fd.append('emoji', emoji);
+    fetch('/Server/ToggleReaction', { method: 'POST', body: fd });
 }
 
-function updateReactionInUI(messageId, emoji, count, hasReacted) {
-    const container = document.getElementById(`reactions-${messageId}`);
-    if (!container) return;
-
-    let bubble = null;
-    const bubbles = container.querySelectorAll('.reaction-bubble');
-    for (let b of bubbles) {
-        if (b.getAttribute('data-emoji') === emoji) {
-            bubble = b;
-            break;
-        }
+function updateReactionInUI(id, emoji, count, has) {
+    const c = document.getElementById(`reactions-${id}`);
+    if (!c) return;
+    let b = Array.from(c.children).find(x => x.getAttribute('data-emoji') === emoji);
+    if (count <= 0) { b?.remove(); return; }
+    if (!b) {
+        b = document.createElement('div'); b.className = 'reaction-bubble';
+        b.setAttribute('data-emoji', emoji); b.onclick = () => toggleReaction(id, emoji);
+        c.appendChild(b);
     }
-
-    if (count <= 0) {
-        if (bubble) bubble.remove();
-        return;
-    }
-
-    if (!bubble) {
-        bubble = document.createElement('div');
-        bubble.className = 'reaction-bubble';
-        bubble.setAttribute('data-emoji', emoji);
-        bubble.addEventListener('click', function() {
-            toggleReaction(messageId, emoji);
-        });
-        container.appendChild(bubble);
-    }
-
-    bubble.className = 'reaction-bubble' + (hasReacted ? ' active' : '');
-    bubble.innerHTML = emoji + ' <span class="reaction-count">' + count + '</span>';
+    b.className = 'reaction-bubble' + (has ? ' active' : '');
+    b.innerHTML = emoji + ' <span class="reaction-count">' + count + '</span>';
 }
 
-// ─── Real-time Reaction Sync via SignalR ───────────────────────────
-connection.on('ReactionToggled', function (messageId, emoji, count, hasReacted) {
-    updateReactionInUI(messageId, emoji, count, hasReacted);
-});
+connection.on('ReactionToggled', (id, em, cnt, has) => updateReactionInUI(id, em, cnt, has));

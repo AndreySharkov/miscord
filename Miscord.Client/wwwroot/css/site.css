@@ -418,8 +418,7 @@ body {
     min-height: 2.75rem;
     color: #dbdee1;
     display: flex;
-    align-items: flex-start;
-    gap: 16px;
+    flex-direction: column; /* Stack reply header and content vertically */
     width: 100%;
     flex-shrink: 0;
     user-select: text;
@@ -427,6 +426,14 @@ body {
 .message-item:hover { background: rgba(4,4,5,0.1); }
 .message-item:hover .msg-time, .message-item:hover .msg-time-compact { opacity: 1; }
 .message-item:hover .delete-btn { display: block; }
+
+.message-content-row {
+    display: flex;
+    flex-direction: row;
+    gap: 16px;
+    width: 100%;
+    align-items: flex-start;
+}
 
 .msg-avatar {
     width: 40px;
@@ -531,6 +538,127 @@ body {
 
 .action-bar-btn.delete-btn:hover {
     color: #ed4245;
+}
+
+/* Replies */
+.reply-parent-reference {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    margin-left: 56px; /* Space for the hook on the left */
+    padding: 2px 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8125rem;
+    color: #b5bac1;
+    position: relative;
+    max-width: 90%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.65;
+    transition: opacity 0.15s ease;
+}
+
+.reply-parent-reference:hover {
+    opacity: 1;
+    color: #dbdee1;
+}
+
+/* The connector hook line (Discord style) */
+.reply-parent-reference::before {
+    content: "";
+    position: absolute;
+    left: -32px;
+    top: 50%;
+    width: 28px;
+    height: 18px; /* Slightly taller to reach the next element */
+    border-left: 2px solid #4e5058;
+    border-top: 2px solid #4e5058;
+    border-top-left-radius: 6px;
+    pointer-events: none;
+    transform: translateY(2px); /* Tweak vertical alignment */
+}
+
+.reply-parent-avatar {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.reply-parent-username {
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.reply-parent-username:hover {
+    text-decoration: underline;
+}
+
+.reply-parent-text {
+    color: #b5bac1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-style: italic;
+}
+
+.message-item.replying-to {
+    background-color: rgba(88, 101, 242, 0.05) !important;
+}
+
+/* Blue sidebar accent for highlighted messages */
+.message-item.replying-to::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background-color: #5865f2;
+    z-index: 1;
+}
+
+/* Reply Preview Bar */
+.reply-preview-bar {
+    background: #2b2d31;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    padding: 8px 16px;
+    display: none; /* Managed by JS */
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #1e1f22;
+    margin-bottom: -1px;
+}
+
+.reply-preview-text {
+    font-size: 14px;
+    color: #b5bac1;
+}
+
+.reply-preview-text strong {
+    color: #dbdee1;
+}
+
+.reply-cancel-btn {
+    background: none;
+    border: none;
+    color: #b5bac1;
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    padding: 0 4px;
+    border-radius: 50%;
+    transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.reply-cancel-btn:hover {
+    color: #dbdee1;
+    background-color: rgba(79, 84, 92, 0.16);
 }
 
 /* Reactions */

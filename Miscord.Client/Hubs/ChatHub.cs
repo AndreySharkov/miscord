@@ -40,7 +40,20 @@ namespace Miscord.Client.Hubs
             await _context.SaveChangesAsync();
     
             Console.WriteLine($"Broadcasting to Group={channelId}");
-            await Clients.Group(channelId.ToString()).SendAsync("ReceiveMessage", displayName, content, channelId, pfpBase64, message.Id, null, null);
+            // Broadcast with exactly 10 parameters to avoid CancellationToken ambiguity and match client signature
+            await Clients.Group(channelId.ToString()).SendAsync(
+                "ReceiveMessage", 
+                displayName, 
+                content, 
+                channelId, 
+                pfpBase64, 
+                message.Id, 
+                null, // attachmentFileName
+                null, // attachmentContentType
+                null, // parentMessageId
+                null, // parentContent
+                "||" + userId // parentAuthorName|parentAuthorPfp|userId
+            );
         }
 
         public async Task JoinChannel(int channelId)

@@ -134,10 +134,10 @@
 
             @if (hasParent)
             {
-                <div class="reply-parent-reference">
-                    @if (parentAuthorPfp != null)
+                <div class="reply-parent-reference" onclick="scrollToMessage(@msg.ReplyToMessageId)">
+                    @if (parentAuthorPfp != null || !string.IsNullOrEmpty(msg.ParentMessage?.AuthorId))
                     {
-                        <img class="reply-parent-avatar" src="data:image/png;base64,@Convert.ToBase64String(parentAuthorPfp)" />
+                        <img class="reply-parent-avatar" src="/Server/GetProfilePicture?userId=@msg.ParentMessage?.AuthorId" loading="lazy" />
                     }
                     else
                     {
@@ -150,93 +150,97 @@
 
             @if (!isContinued)
             {
-                <div class="msg-avatar" style="background-color: @(msg.Author?.ProfilePictureData == null ? userColor : "transparent");">
-                    @if (msg.Author?.ProfilePictureData == null)
-                    {
-                        <span>@displayName.Substring(0, 1).ToUpper()</span>
-                    }
-                    else
-                    {
-                        <img src="data:image/png;base64,@Convert.ToBase64String(msg.Author.ProfilePictureData)" />
-                    }
-                </div>
-                <div class="msg-body">
-                    <div class="msg-header">
-                        <span class="msg-username" style="color: @userColor">@displayName</span>
-                        <span class="msg-time">@FormatHistoryTimestamp(msg.Timestamp)</span>
+                <div class="message-content-row">
+                    <div class="msg-avatar" data-userid="@msg.AuthorId" style="background-color: @(msg.Author?.ProfilePictureData == null ? userColor : "transparent");">
+                        @if (msg.Author?.ProfilePictureData == null)
+                        {
+                            <span>@displayName.Substring(0, 1).ToUpper()</span>
+                        }
+                        else
+                        {
+                            <img src="/Server/GetProfilePicture?userId=@msg.AuthorId" loading="lazy" />
+                        }
                     </div>
-                    <div class="msg-text">@msg.Content</div>
-                    
-                    <!-- Reactions list -->
-                    <div class="reactions-container" id="reactions-@msg.Id"></div>
-
-                    @if (msg.AttachmentData != null)
-                    {
-                        <div class="msg-attachment">
-                            @if (msg.AttachmentContentType != null && msg.AttachmentContentType.StartsWith("image/"))
-                            {
-                                <img src="/Server/GetAttachment?messageId=@msg.Id" class="attachment-image" alt="@msg.AttachmentFileName" />
-                            }
-                            else
-                            {
-                                <div class="attachment-file-box">
-                                    <svg class="file-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                        <polyline points="14 2 14 8 20 8" />
-                                    </svg>
-                                    <div class="attachment-file-info">
-                                        <a href="/Server/GetAttachment?messageId=@msg.Id" class="attachment-file-link" target="_blank">@msg.AttachmentFileName</a>
-                                        <span class="attachment-file-size">Attachment</span>
-                                    </div>
-                                    <a href="/Server/GetAttachment?messageId=@msg.Id" class="attachment-download-btn" download="@msg.AttachmentFileName" title="Download">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-                                        </svg>
-                                    </a>
-                                </div>
-                            }
+                    <div class="msg-body">
+                        <div class="msg-header">
+                            <span class="msg-username" style="color: @userColor">@displayName</span>
+                            <span class="msg-time">@FormatHistoryTimestamp(msg.Timestamp)</span>
                         </div>
-                    }
+                        <div class="msg-text">@msg.Content</div>
+                        
+                        <!-- Reactions list -->
+                        <div class="reactions-container" id="reactions-@msg.Id"></div>
+
+                        @if (msg.AttachmentData != null)
+                        {
+                            <div class="msg-attachment">
+                                @if (msg.AttachmentContentType != null && msg.AttachmentContentType.StartsWith("image/"))
+                                {
+                                    <img src="/Server/GetAttachment?messageId=@msg.Id" class="attachment-image" alt="@msg.AttachmentFileName" loading="lazy" />
+                                }
+                                else
+                                {
+                                    <div class="attachment-file-box">
+                                        <svg class="file-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                            <polyline points="14 2 14 8 20 8" />
+                                        </svg>
+                                        <div class="attachment-file-info">
+                                            <a href="/Server/GetAttachment?messageId=@msg.Id" class="attachment-file-link" target="_blank">@msg.AttachmentFileName</a>
+                                            <span class="attachment-file-size">Attachment</span>
+                                        </div>
+                                        <a href="/Server/GetAttachment?messageId=@msg.Id" class="attachment-download-btn" download="@msg.AttachmentFileName" title="Download">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                                            </svg>
+                                        </a>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
                 </div>
             }
             else
             {
-                <div class="msg-avatar-spacer">
-                    <span class="msg-time-compact">@msg.Timestamp.ToLocalTime().ToString("h:mm tt")</span>
-                </div>
-                <div class="msg-body">
-                    <div class="msg-text">@msg.Content</div>
+                <div class="message-content-row">
+                    <div class="msg-avatar-spacer">
+                        <span class="msg-time-compact">@msg.Timestamp.ToLocalTime().ToString("h:mm tt")</span>
+                    </div>
+                    <div class="msg-body">
+                        <div class="msg-text">@msg.Content</div>
 
-                    <!-- Reactions list -->
-                    <div class="reactions-container" id="reactions-@msg.Id"></div>
+                        <!-- Reactions list -->
+                        <div class="reactions-container" id="reactions-@msg.Id"></div>
 
-                    @if (msg.AttachmentData != null)
-                    {
-                        <div class="msg-attachment">
-                            @if (msg.AttachmentContentType != null && msg.AttachmentContentType.StartsWith("image/"))
-                            {
-                                <img src="/Server/GetAttachment?messageId=@msg.Id" class="attachment-image" alt="@msg.AttachmentFileName" />
-                            }
-                            else
-                            {
-                                <div class="attachment-file-box">
-                                    <svg class="file-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                        <polyline points="14 2 14 8 20 8" />
-                                    </svg>
-                                    <div class="attachment-file-info">
-                                        <a href="/Server/GetAttachment?messageId=@msg.Id" class="attachment-file-link" target="_blank">@msg.AttachmentFileName</a>
-                                        <span class="attachment-file-size">Attachment</span>
-                                    </div>
-                                    <a href="/Server/GetAttachment?messageId=@msg.Id" class="attachment-download-btn" download="@msg.AttachmentFileName" title="Download">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                        @if (msg.AttachmentData != null)
+                        {
+                            <div class="msg-attachment">
+                                @if (msg.AttachmentContentType != null && msg.AttachmentContentType.StartsWith("image/"))
+                                {
+                                    <img src="/Server/GetAttachment?messageId=@msg.Id" class="attachment-image" alt="@msg.AttachmentFileName" loading="lazy" />
+                                }
+                                else
+                                {
+                                    <div class="attachment-file-box">
+                                        <svg class="file-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                            <polyline points="14 2 14 8 20 8" />
                                         </svg>
-                                    </a>
-                                </div>
-                            }
-                        </div>
-                    }
+                                        <div class="attachment-file-info">
+                                            <a href="/Server/GetAttachment?messageId=@msg.Id" class="attachment-file-link" target="_blank">@msg.AttachmentFileName</a>
+                                            <span class="attachment-file-size">Attachment</span>
+                                        </div>
+                                        <a href="/Server/GetAttachment?messageId=@msg.Id" class="attachment-download-btn" download="@msg.AttachmentFileName" title="Download">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                                            </svg>
+                                        </a>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
                 </div>
             }
         </div>
