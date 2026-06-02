@@ -325,6 +325,7 @@ body {
     flex-direction: column;
     background: #313338;
     overflow: hidden;
+    position: relative;
 }
 
 /* Channel header bar */
@@ -491,25 +492,90 @@ body {
     user-select: text;
 }
 
-.delete-btn {
+/* Message Actions Bar (Discord styling) */
+.message-actions-bar {
     position: absolute;
+    top: -16px;
     right: 16px;
-    top: 8px;
-    background: #313338;
+    background: #2b2d31;
     border: 1px solid #1e1f22;
-    color: #ed4245;
-    padding: 2px 8px;
     border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-    display: none;
-    z-index: 10;
+    display: none; /* Hidden by default, shown on hover */
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    z-index: 100;
+    overflow: hidden;
 }
-.delete-btn:hover {
-    background: #ed4245;
-    color: #fff;
+
+.message-item:hover .message-actions-bar {
+    display: flex;
 }
+
+.action-bar-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: #b5bac1;
+    cursor: pointer;
+    padding: 4px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.action-bar-btn:hover {
+    background-color: rgba(79,84,92,0.16);
+    color: #dbdee1;
+}
+
+.action-bar-btn.delete-btn:hover {
+    color: #ed4245;
+}
+
+/* Reactions */
+.reactions-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.reaction-bubble {
+    background: #2b2d31;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 0 6px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.1s ease, border-color 0.1s ease;
+    user-select: none;
+}
+
+.reaction-bubble:hover {
+    background-color: #35373c;
+    border-color: rgba(255,255,255,0.2);
+}
+
+.reaction-bubble.active {
+    background: rgba(88,101,242,0.15);
+    border-color: #5865f2;
+}
+
+.reaction-bubble.active .reaction-count {
+    color: #5865f2;
+}
+
+.reaction-count {
+    font-size: 12px;
+    font-weight: 600;
+    color: #b5bac1;
+}
+
 /* Continued message (same author, within 7 min) */
 .message-item.continued {
     min-height: 1.375rem; 
@@ -555,7 +621,7 @@ body {
 .chat-btn {
     background: none;
     border: none;
-    color: #80848e;
+    color: #b5bac1;
     cursor: pointer;
     padding: 10px 6px;
     display: flex;
@@ -565,7 +631,36 @@ body {
     height: auto;
     transition: color 0.15s ease;
 }
-.chat-btn:hover { color: #dcddde; }
+.chat-btn:hover { color: #dbdee1; }
+
+/* Quick Emoji Popover */
+.quick-emoji-popover {
+    position: absolute;
+    background: #1e1f22;
+    border: 1px solid #1e1f22;
+    border-radius: 8px;
+    padding: 8px;
+    display: flex;
+    gap: 8px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.24);
+    z-index: 1000;
+}
+
+.quick-emoji-btn {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: background-color 0.1s ease, transform 0.1s ease;
+}
+
+.quick-emoji-btn:hover {
+    background-color: rgba(79,84,92,0.16);
+    transform: scale(1.2);
+}
+
 
 .chat-input-field {
     flex: 1;
@@ -690,3 +785,207 @@ body {
 
 /* Utility: hide bootstrap defaults that conflict */
 .container { max-width: none !important; padding: 0 !important; margin: 0 !important; width: auto !important; }
+
+/* ─── Attachment Styling ──────────────────────────────────── */
+.msg-attachment {
+    margin-top: 8px;
+    max-width: 520px;
+}
+
+.attachment-image {
+    max-width: 100%;
+    max-height: 350px;
+    border-radius: 4px;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    transition: transform 0.15s ease;
+}
+.attachment-image:hover {
+    transform: scale(1.01);
+}
+
+.attachment-file-box {
+    display: flex;
+    align-items: center;
+    background: #2b2d31;
+    border: 1px solid #1e1f22;
+    border-radius: 4px;
+    padding: 10px 12px;
+    gap: 12px;
+    width: fit-content;
+    min-width: 320px;
+}
+
+.attachment-file-box .file-icon {
+    color: #b5bac1;
+}
+
+.attachment-file-info {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.attachment-file-link {
+    color: #00a8fc;
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.attachment-file-link:hover {
+    text-decoration: underline;
+}
+
+.attachment-file-size {
+    color: #949ba4;
+    font-size: 12px;
+}
+
+.attachment-download-btn {
+    color: #b5bac1;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: color 0.15s ease, background-color 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.attachment-download-btn:hover {
+    color: #dbdee1;
+    background-color: rgba(79,84,92,0.16);
+}
+
+/* Upload Preview Area above input */
+.upload-preview-area {
+    background: #2b2d31;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    padding: 12px 16px;
+    display: none; /* hidden until file selected */
+    align-items: center;
+    border-bottom: 1px solid #1e1f22;
+    margin-bottom: -1px; /* seamless with chat input wrapper */
+}
+
+.preview-container {
+    position: relative;
+    background: #232428;
+    border-radius: 4px;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: 300px;
+}
+
+.preview-thumbnail {
+    width: 48px;
+    height: 48px;
+    border-radius: 4px;
+    object-fit: cover;
+}
+
+.preview-file-icon {
+    color: #b5bac1;
+    background: #1e1f22;
+    border-radius: 4px;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.preview-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+}
+
+.preview-filename {
+    color: #f2f3f5;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.preview-filesize {
+    color: #949ba4;
+    font-size: 11px;
+}
+
+.preview-remove-btn {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ed4245;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    font-size: 12px;
+    font-weight: bold;
+    padding: 0;
+}
+.preview-remove-btn:hover {
+    background: #c93b3e;
+}
+
+/* Drag & Drop Overlay */
+.drag-drop-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(49, 51, 56, 0.92);
+    border: 2px dashed #5865f2;
+    border-radius: 8px;
+    margin: 8px;
+    z-index: 999;
+    display: none; /* Managed by JS */
+    align-items: center;
+    justify-content: center;
+    pointer-events: none; /* Let dragover/drop continue through */
+    transition: all 0.2s ease;
+}
+
+.drag-drop-overlay-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    color: #5865f2;
+    font-weight: 600;
+    font-size: 18px;
+    text-align: center;
+}
+
+.drag-drop-overlay-inner svg {
+    color: #5865f2;
+    animation: bounceDragIcon 1.5s infinite ease-in-out;
+}
+
+@keyframes bounceDragIcon {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}

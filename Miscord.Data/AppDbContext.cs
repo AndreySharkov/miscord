@@ -19,6 +19,7 @@ namespace Miscord.Data
         public DbSet<Server> Servers { get; set; }
         public DbSet<Channel> Channels { get; set; }
         public DbSet<Message> Messages { get; set; }
+        public DbSet<Reaction> Reactions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -47,6 +48,11 @@ namespace Miscord.Data
                 .WithMany(u => u.Messages)
                 .HasForeignKey(m => m.AuthorId)
                 .OnDelete(DeleteBehavior.Restrict); 
+            builder.Entity<Reaction>()
+                .HasOne(r => r.User)
+                .WithMany() // Add a collection property like r.User.Reactions here if you ever define one
+                .HasForeignKey(r => r.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
                 
             builder.Entity<Message>()
                 .HasQueryFilter(m => !m.IsDeleted);
@@ -59,6 +65,11 @@ namespace Miscord.Data
 
             builder.Entity<ApplicationUser>()
                 .HasQueryFilter(u => !u.IsDeleted);
+
+            builder.Entity<Reaction>()
+                .HasQueryFilter(r => !r.Message.IsDeleted);
+
+            
 
         }
     }

@@ -13,7 +13,7 @@ namespace Miscord.Data.Models
     {
         public int Id { get; set; }
         [Required]
-        [StringLength(200000)]
+        [StringLength(20000)]
         public string Content { get; set; } = null!;
 
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
@@ -27,5 +27,13 @@ namespace Miscord.Data.Models
         public ApplicationUser Author { get; set; } = null!;
 
         public bool IsDeleted { get; set; } = false;
+
+        public byte[]? AttachmentData { get; set; }
+        public string? AttachmentFileName { get; set; }
+        public string? AttachmentContentType { get; set; }
+
+        public int? ReplyToMessageId { get; set; }
+        [ForeignKey("ReplyToMessageId")]
+        public Message? ParentMessage { get; set; }
     }
 }

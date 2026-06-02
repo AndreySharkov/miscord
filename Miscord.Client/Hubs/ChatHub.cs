@@ -40,7 +40,7 @@ namespace Miscord.Client.Hubs
             await _context.SaveChangesAsync();
     
             Console.WriteLine($"Broadcasting to Group={channelId}");
-            await Clients.Group(channelId.ToString()).SendAsync("ReceiveMessage", displayName, content, channelId, pfpBase64, message.Id);
+            await Clients.Group(channelId.ToString()).SendAsync("ReceiveMessage", displayName, content, channelId, pfpBase64, message.Id, null, null);
         }
 
         public async Task JoinChannel(int channelId)

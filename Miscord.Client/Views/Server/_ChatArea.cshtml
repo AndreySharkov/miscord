@@ -32,6 +32,18 @@
 <input type="hidden" id="current-user-name" value="@(currentUser?.Nickname ?? currentUser?.UserName ?? "Unknown")" />
 <input type="hidden" id="current-user-pfp"  value="@currentUserPfp" />
 
+<!-- Drag and Drop Overlay -->
+<div id="drag-drop-overlay" class="drag-drop-overlay">
+    <div class="drag-drop-overlay-inner">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <span>Drag files here to upload</span>
+    </div>
+</div>
+
 <!-- Channel Header -->
 <div class="content-header">
     <svg class="ch-header-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -64,13 +76,78 @@
 
     @foreach (var msg in Model.Messages)
     {
-        bool isContinued = lastAuthor == msg.AuthorId && lastTime.HasValue && (msg.Timestamp - lastTime.Value).TotalMinutes < 7;
+        // Safely check for ParentMessage via reflection to keep compiler happy before DB updates
+        var parentMessageProp = msg.GetType().GetProperty("ParentMessage");
+        var parentMessage = parentMessageProp != null ? parentMessageProp.GetValue(msg) : null;
+        bool hasParent = parentMessage != null;
+
+        string? parentContent = "";
+        string parentAuthorName = "Unknown";
+        byte[]? parentAuthorPfp = null;
+
+        if (hasParent && parentMessage != null)
+        {
+            parentContent = parentMessage.GetType().GetProperty("Content")?.GetValue(parentMessage) as string;
+            var author = parentMessage.GetType().GetProperty("Author")?.GetValue(parentMessage);
+            if (author != null)
+            {
+                parentAuthorName = author.GetType().GetProperty("Nickname")?.GetValue(author) as string 
+                    ?? author.GetType().GetProperty("UserName")?.GetValue(author) as string 
+                    ?? "Unknown";
+                parentAuthorPfp = author.GetType().GetProperty("ProfilePictureData")?.GetValue(author) as byte[];
+            }
+        }
+
+        bool isContinued = lastAuthor == msg.AuthorId && lastTime.HasValue && (msg.Timestamp - lastTime.Value).TotalMinutes < 7 && !hasParent;
         lastAuthor = msg.AuthorId;
         lastTime = msg.Timestamp;
         var displayName = msg.Author?.Nickname ?? msg.Author?.UserName ?? "Unknown";
         var userColor = AvatarHelper.GetUserColor(displayName);
 
         <div class="message-item @(isContinued ? "continued" : "")" id="msg-@msg.Id">
+            <!-- Floating Actions Bar -->
+            <div class="message-actions-bar">
+                <button class="action-bar-btn reaction-btn" onclick="showQuickReactions(@msg.Id, this)" title="Add Reaction">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>
+                    </svg>
+                </button>
+                <button class="action-bar-btn reply-btn" onclick="stageReply(@msg.Id, '@displayName')" title="Reply">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>
+                    </svg>
+                </button>
+                <button class="action-bar-btn copy-btn" onclick="copyMessageText(@msg.Id)" title="Copy Text">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                    </svg>
+                </button>
+                @if(msg.AuthorId == UserManager.GetUserId(User))
+                {
+                    <button class="action-bar-btn delete-btn" onclick="deleteMessage(@msg.Id)" title="Delete Message">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
+                        </svg>
+                    </button>
+                }
+            </div>
+
+            @if (hasParent)
+            {
+                <div class="reply-parent-reference">
+                    @if (parentAuthorPfp != null)
+                    {
+                        <img class="reply-parent-avatar" src="data:image/png;base64,@Convert.ToBase64String(parentAuthorPfp)" />
+                    }
+                    else
+                    {
+                        <div class="reply-parent-avatar" style="background-color: @AvatarHelper.GetUserColor(parentAuthorName); width:16px; height:16px; border-radius:50%; display:inline-block;"></div>
+                    }
+                    <span class="reply-parent-username" style="color: @AvatarHelper.GetUserColor(parentAuthorName)">@parentAuthorName</span>
+                    <span class="reply-parent-text">@parentContent</span>
+                </div>
+            }
+
             @if (!isContinued)
             {
                 <div class="msg-avatar" style="background-color: @(msg.Author?.ProfilePictureData == null ? userColor : "transparent");">
@@ -89,6 +166,37 @@
                         <span class="msg-time">@FormatHistoryTimestamp(msg.Timestamp)</span>
                     </div>
                     <div class="msg-text">@msg.Content</div>
+                    
+                    <!-- Reactions list -->
+                    <div class="reactions-container" id="reactions-@msg.Id"></div>
+
+                    @if (msg.AttachmentData != null)
+                    {
+                        <div class="msg-attachment">
+                            @if (msg.AttachmentContentType != null && msg.AttachmentContentType.StartsWith("image/"))
+                            {
+                                <img src="/Server/GetAttachment?messageId=@msg.Id" class="attachment-image" alt="@msg.AttachmentFileName" />
+                            }
+                            else
+                            {
+                                <div class="attachment-file-box">
+                                    <svg class="file-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                        <polyline points="14 2 14 8 20 8" />
+                                    </svg>
+                                    <div class="attachment-file-info">
+                                        <a href="/Server/GetAttachment?messageId=@msg.Id" class="attachment-file-link" target="_blank">@msg.AttachmentFileName</a>
+                                        <span class="attachment-file-size">Attachment</span>
+                                    </div>
+                                    <a href="/Server/GetAttachment?messageId=@msg.Id" class="attachment-download-btn" download="@msg.AttachmentFileName" title="Download">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                                        </svg>
+                                    </a>
+                                </div>
+                            }
+                        </div>
+                    }
                 </div>
             }
             else
@@ -98,11 +206,38 @@
                 </div>
                 <div class="msg-body">
                     <div class="msg-text">@msg.Content</div>
+
+                    <!-- Reactions list -->
+                    <div class="reactions-container" id="reactions-@msg.Id"></div>
+
+                    @if (msg.AttachmentData != null)
+                    {
+                        <div class="msg-attachment">
+                            @if (msg.AttachmentContentType != null && msg.AttachmentContentType.StartsWith("image/"))
+                            {
+                                <img src="/Server/GetAttachment?messageId=@msg.Id" class="attachment-image" alt="@msg.AttachmentFileName" />
+                            }
+                            else
+                            {
+                                <div class="attachment-file-box">
+                                    <svg class="file-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                        <polyline points="14 2 14 8 20 8" />
+                                    </svg>
+                                    <div class="attachment-file-info">
+                                        <a href="/Server/GetAttachment?messageId=@msg.Id" class="attachment-file-link" target="_blank">@msg.AttachmentFileName</a>
+                                        <span class="attachment-file-size">Attachment</span>
+                                    </div>
+                                    <a href="/Server/GetAttachment?messageId=@msg.Id" class="attachment-download-btn" download="@msg.AttachmentFileName" title="Download">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                                        </svg>
+                                    </a>
+                                </div>
+                            }
+                        </div>
+                    }
                 </div>
-            }
-            @if(msg.AuthorId == UserManager.GetUserId(User))
-            {
-                <button class="delete-btn" onclick="deleteMessage(@msg.Id)" title="Delete Message">Delete</button>
             }
         </div>
     }
@@ -113,9 +248,23 @@
 
 <!-- Chat Input -->
 <div class="chat-input-area">
+    <!-- Reply Preview Area -->
+    <div id="reply-preview-bar" class="reply-preview-bar">
+        <span id="reply-preview-text" class="reply-preview-text">Replying to <strong id="reply-target-username"></strong></span>
+        <button class="reply-cancel-btn" type="button" onclick="cancelReply()" title="Cancel Reply">×</button>
+    </div>
+
+    <!-- Upload Preview Area -->
+    <div id="upload-preview-area" class="upload-preview-area">
+        <div id="preview-container" class="preview-container">
+            <!-- Populated dynamically by site.js -->
+        </div>
+    </div>
+
     <div class="chat-input-wrapper">
+        <input type="file" id="attachment-input" style="display:none;" />
         <!-- Add attachment button -->
-        <button class="chat-btn" title="Upload a File" type="button">
+        <button class="chat-btn" title="Upload a File" type="button" onclick="document.getElementById('attachment-input').click()">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
                 <line x1="12" y1="8" x2="12" y2="16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
