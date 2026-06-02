@@ -165,6 +165,15 @@ connection.on('ReceiveMessage', function (user, message, channelId, pfp, message
     appendMessage(user, message, pfp, messageId);
 });
 
+connection.on('ReceiveError', function (error) {
+    alert('Error: ' + error);
+    // Remove the optimistic message if it exists
+    const tempMsgs = document.querySelectorAll('.message-item[data-temp="true"]');
+    if (tempMsgs.length > 0) {
+        tempMsgs[tempMsgs.length - 1].remove();
+    }
+});
+
 connection.start()
     .then(function() {
         console.log('SignalR connected');

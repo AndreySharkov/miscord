@@ -13,7 +13,7 @@ namespace Miscord.Data.Models
     {
         public int Id { get; set; }
         [Required]
-        [StringLength(4000)]
+        [StringLength(200000)]
         public string Content { get; set; } = null!;
 
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;

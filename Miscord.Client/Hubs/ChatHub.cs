@@ -17,7 +17,14 @@ namespace Miscord.Client.Hubs
         }
         public async Task SendMessage(string userId, int channelId, string content)
         {
-            Console.WriteLine($"SendMessage invoked: User={userId}, Channel={channelId}, Content={content}");
+            if (string.IsNullOrWhiteSpace(content)) return;
+            if (content.Length > 200000) 
+            {
+                await Clients.Caller.SendAsync("ReceiveError", "Message is too long (max 200,000 characters).");
+                return;
+            }
+
+            Console.WriteLine($"SendMessage invoked: User={userId}, Channel={channelId}, Content={content.Substring(0, Math.Min(content.Length, 50))}...");
             var user = await _context.Users.FindAsync(userId);
             var displayName = user?.Nickname ?? user?.UserName ?? "Unknown";
             var pfpBase64 = user?.ProfilePictureData != null ? Convert.ToBase64String(user.ProfilePictureData) : null;
