@@ -5,11 +5,11 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Miscord.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.VisualBasic;
 using Microsoft.AspNetCore.Http;
 using System.IO;
 using Microsoft.AspNetCore.SignalR;
 using Miscord.Client.Hubs;
+using Miscord.Client.Models;
 using Miscord.Data.Models;
 using System.Security.Claims;
 
@@ -62,23 +62,59 @@ namespace Miscord.Client.Controllers
         [HttpGet]
         public async Task<IActionResult> GetChat(int channelId)
         {
-            var channel = await _context.Channels
-                .Include(c => c.Messages.OrderByDescending(m => m.Timestamp).Take(100))
-                    .ThenInclude(m => m.Author)
-                .Include(c => c.Messages.OrderByDescending(m => m.Timestamp).Take(100))
-                    .ThenInclude(m => m.ParentMessage)
-                        .ThenInclude(pm => pm.Author)
-                .FirstOrDefaultAsync(c => c.Id == channelId);
-                
-            if (channel == null)
+            // Project to DTO — never loads AttachmentData (the binary blob that caused the slowness).
+            // AsNoTracking skips change-tracker overhead since this is a read-only endpoint.
+            var channelName = await _context.Channels
+                .AsNoTracking()
+                .Where(c => c.Id == channelId)
+                .Select(c => c.Name)
+                .FirstOrDefaultAsync();
+
+            if (channelName == null)
             {
                 return NotFound();
             }
 
-            // Reverse messages back to chronological order for the UI
-            channel.Messages = channel.Messages.OrderBy(m => m.Timestamp).ToList();
-            
-            return PartialView("_ChatArea", channel);
+            var messages = await _context.Messages
+                .AsNoTracking()
+                .Where(m => m.ChannelId == channelId)
+                .OrderByDescending(m => m.Timestamp)
+                .Take(100)
+                .Select(m => new ChatMessageViewModel
+                {
+                    Id                         = m.Id,
+                    Content                    = m.Content,
+                    Timestamp                  = m.Timestamp,
+                    AuthorId                   = m.AuthorId,
+                    AuthorDisplayName          = m.Author.Nickname ?? m.Author.UserName,
+                    AuthorHasProfilePicture    = m.Author.ProfilePictureData != null,
+
+                    // Only metadata — AttachmentData byte[] is never fetched
+                    HasAttachment              = m.AttachmentData != null,
+                    AttachmentFileName         = m.AttachmentFileName,
+                    AttachmentContentType      = m.AttachmentContentType,
+
+                    ReplyToMessageId           = m.ReplyToMessageId,
+                    ParentContent              = m.ParentMessage != null ? m.ParentMessage.Content : null,
+                    ParentAuthorId             = m.ParentMessage != null ? m.ParentMessage.AuthorId : null,
+                    ParentAuthorDisplayName    = m.ParentMessage != null
+                                                    ? (m.ParentMessage.Author.Nickname ?? m.ParentMessage.Author.UserName)
+                                                    : null,
+                    ParentAuthorHasProfilePicture = m.ParentMessage != null && m.ParentMessage.Author.ProfilePictureData != null,
+                })
+                .ToListAsync();
+
+            // Chronological order for the UI
+            messages.Reverse();
+
+            var vm = new ChatChannelViewModel
+            {
+                Id       = channelId,
+                Name     = channelName,
+                Messages = messages,
+            };
+
+            return PartialView("_ChatArea", vm);
         }
 
         [HttpPost]
@@ -163,22 +199,36 @@ namespace Miscord.Client.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAttachment(int messageId)
         {
-            var message = await _context.Messages.FindAsync(messageId);
+            var message = await _context.Messages
+                .AsNoTracking()
+                .Select(m => new { m.Id, m.AttachmentData, m.AttachmentContentType, m.AttachmentFileName })
+                .FirstOrDefaultAsync(m => m.Id == messageId);
+
             if (message == null || message.AttachmentData == null)
             {
                 return NotFound();
             }
+
+            // Attachments are immutable — cache them in the browser for 7 days
+            Response.Headers["Cache-Control"] = "public, max-age=604800, immutable";
             return File(message.AttachmentData, message.AttachmentContentType ?? "application/octet-stream", message.AttachmentFileName);
         }
 
         [HttpGet]
         public async Task<IActionResult> GetProfilePicture(string userId)
         {
-            var user = await _context.Users.FindAsync(userId);
+            var user = await _context.Users
+                .AsNoTracking()
+                .Select(u => new { u.Id, u.ProfilePictureData })
+                .FirstOrDefaultAsync(u => u.Id == userId);
+
             if (user == null || user.ProfilePictureData == null)
             {
                 return NotFound();
             }
+
+            // Profile pictures rarely change — cache for 1 hour
+            Response.Headers["Cache-Control"] = "public, max-age=3600";
             return File(user.ProfilePictureData, "image/png");
         }
 
@@ -228,6 +278,87 @@ namespace Miscord.Client.Controllers
 
             return Ok();
             
+        }
+        public async Task<IActionResult> CreateServer(
+            [FromForm] string ServerName,
+            [FromForm] string? serverType,
+            [FromForm] IFormFile? serverIcon
+        )
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null)
+            {
+                return Unauthorized();
+            }
+
+            var server = new Server
+            {
+                Name = ServerName,
+                OwnerId = userId
+            };
+            _context.Servers.Add(server);
+            await _context.SaveChangesAsync();
+
+            var channel = new Channel
+            {
+                Name = "general",
+                ServerId = server.Id
+            };
+            _context.Channels.Add(channel);
+            var channel2 = new Channel
+            {
+                Name = "announcements",
+                ServerId = server.Id
+            };
+            _context.Channels.Add(channel);
+            switch(serverType)
+            {
+                case "gaming":
+                    var channel3 = new Channel
+                    {
+                        Name = "mladost-1",
+                        ServerId = server.Id
+                    };
+                    _context.Channels.Add(channel3);           
+                    break;
+                case "school":
+                    var channel4 = new Channel
+                    {
+                        Name = "homework-help",
+                        ServerId = server.Id
+                    };
+                    _context.Channels.Add(channel4);
+                    
+                    break;
+                case "friends":
+                        var channel5 = new Channel
+                        {
+                            Name = "memes",
+                            ServerId = server.Id
+                        };
+                        _context.Channels.Add(channel5);
+                    
+                    break;
+                case "art":
+                    var channel6 = new Channel
+                    {
+                        Name = "art-showcase",
+                        ServerId = server.Id
+                    };
+                    _context.Channels.Add(channel6);
+                    
+                    break;
+                case "own":                    
+                    break;
+                default:
+                    
+                    break;
+            }
+            
+            
+            await _context.SaveChangesAsync();
+
+            return Ok(new { serverId = server.Id });
         }
     }
 }

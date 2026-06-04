@@ -1,6 +1,6 @@
 @using Microsoft.AspNetCore.Identity
 @inject UserManager<Miscord.Data.Models.ApplicationUser> UserManager
-@model Miscord.Data.Models.Channel
+@model Miscord.Client.Models.ChatChannelViewModel
 
 @{
     var currentUser = await UserManager.GetUserAsync(User);
@@ -76,33 +76,15 @@
 
     @foreach (var msg in Model.Messages)
     {
-        // Safely check for ParentMessage via reflection to keep compiler happy before DB updates
-        var parentMessageProp = msg.GetType().GetProperty("ParentMessage");
-        var parentMessage = parentMessageProp != null ? parentMessageProp.GetValue(msg) : null;
-        bool hasParent = parentMessage != null;
-
-        string? parentContent = "";
-        string parentAuthorName = "Unknown";
-        byte[]? parentAuthorPfp = null;
-
-        if (hasParent && parentMessage != null)
-        {
-            parentContent = parentMessage.GetType().GetProperty("Content")?.GetValue(parentMessage) as string;
-            var author = parentMessage.GetType().GetProperty("Author")?.GetValue(parentMessage);
-            if (author != null)
-            {
-                parentAuthorName = author.GetType().GetProperty("Nickname")?.GetValue(author) as string 
-                    ?? author.GetType().GetProperty("UserName")?.GetValue(author) as string 
-                    ?? "Unknown";
-                parentAuthorPfp = author.GetType().GetProperty("ProfilePictureData")?.GetValue(author) as byte[];
-            }
-        }
-
+        bool hasParent = msg.ReplyToMessageId.HasValue && msg.ParentContent != null;
         bool isContinued = lastAuthor == msg.AuthorId && lastTime.HasValue && (msg.Timestamp - lastTime.Value).TotalMinutes < 7 && !hasParent;
         lastAuthor = msg.AuthorId;
         lastTime = msg.Timestamp;
-        var displayName = msg.Author?.Nickname ?? msg.Author?.UserName ?? "Unknown";
+
+        var displayName = msg.AuthorDisplayName ?? "Unknown";
         var userColor = AvatarHelper.GetUserColor(displayName);
+
+        var parentAuthorName = msg.ParentAuthorDisplayName ?? "Unknown";
 
         <div class="message-item @(isContinued ? "continued" : "")" id="msg-@msg.Id">
             <!-- Floating Actions Bar -->
@@ -135,24 +117,24 @@
             @if (hasParent)
             {
                 <div class="reply-parent-reference" onclick="scrollToMessage(@msg.ReplyToMessageId)">
-                    @if (parentAuthorPfp != null || !string.IsNullOrEmpty(msg.ParentMessage?.AuthorId))
+                    @if (msg.ParentAuthorHasProfilePicture && msg.ParentAuthorId != null)
                     {
-                        <img class="reply-parent-avatar" src="/Server/GetProfilePicture?userId=@msg.ParentMessage?.AuthorId" loading="lazy" />
+                        <img class="reply-parent-avatar" src="/Server/GetProfilePicture?userId=@msg.ParentAuthorId" loading="lazy" />
                     }
                     else
                     {
                         <div class="reply-parent-avatar" style="background-color: @AvatarHelper.GetUserColor(parentAuthorName); width:16px; height:16px; border-radius:50%; display:inline-block;"></div>
                     }
                     <span class="reply-parent-username" style="color: @AvatarHelper.GetUserColor(parentAuthorName)">@parentAuthorName</span>
-                    <span class="reply-parent-text">@parentContent</span>
+                    <span class="reply-parent-text">@msg.ParentContent</span>
                 </div>
             }
 
             @if (!isContinued)
             {
                 <div class="message-content-row">
-                    <div class="msg-avatar" data-userid="@msg.AuthorId" style="background-color: @(msg.Author?.ProfilePictureData == null ? userColor : "transparent");">
-                        @if (msg.Author?.ProfilePictureData == null)
+                    <div class="msg-avatar" data-userid="@msg.AuthorId" style="background-color: @(!msg.AuthorHasProfilePicture ? userColor : "transparent");">
+                        @if (!msg.AuthorHasProfilePicture)
                         {
                             <span>@displayName.Substring(0, 1).ToUpper()</span>
                         }
@@ -171,7 +153,7 @@
                         <!-- Reactions list -->
                         <div class="reactions-container" id="reactions-@msg.Id"></div>
 
-                        @if (msg.AttachmentData != null)
+                        @if (msg.HasAttachment)
                         {
                             <div class="msg-attachment">
                                 @if (msg.AttachmentContentType != null && msg.AttachmentContentType.StartsWith("image/"))
@@ -213,7 +195,7 @@
                         <!-- Reactions list -->
                         <div class="reactions-container" id="reactions-@msg.Id"></div>
 
-                        @if (msg.AttachmentData != null)
+                        @if (msg.HasAttachment)
                         {
                             <div class="msg-attachment">
                                 @if (msg.AttachmentContentType != null && msg.AttachmentContentType.StartsWith("image/"))

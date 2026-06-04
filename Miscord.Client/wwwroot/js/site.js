@@ -510,3 +510,51 @@ function updateReactionInUI(id, emoji, count, has) {
 }
 
 connection.on('ReactionToggled', (id, em, cnt, has) => updateReactionInUI(id, em, cnt, has));
+
+//Server Creation
+function openCreateServerModal(){
+    document.getElementById('create-server-modal').classList.add('open');
+}
+function closeCreateServerModal() {
+    const modal = document.getElementById('create-server-modal');
+    modal.classList.remove('open');
+
+    goToStep('cs-step-type');
+}
+function goToStep(stepId){
+    document.querySelectorAll('.cs-step ').forEach(s => s.classList.remove('cs-step--active'));
+    document.getElementById(stepId).classList.add('cs-step--active');
+}
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('cs-close-btn').addEventListener('click', closeCreateServerModal)
+    document.getElementById('create-server-modal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closeCreateServerModal();
+    });
+    document.addEventListener('keydown', (e) =>{
+        if(e.key === 'Escape'){
+            closeCreateServerModal()
+        }
+    })
+    document.querySelectorAll('.cs-type-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.cs-type-option').value = btn.dataset.type;
+            goToStep('cs-step-customize');
+        })
+    })
+    document.getElementById('cs-back-btn').addEventListener('click', () => goToStep('cs-step-type'));
+
+    document.getElementById('cs-cancel-btn').addEventListener('clcick', () => goToStep('cs-step-type'));
+
+    document.getElementById('cs-icon-input').addEventListener('change', (e) => {                                                                                                         
+        const file = e.target.files[0];                                                                                                                                                  
+        if (!file){
+            return;     
+        }                                                                                                                                                             
+        const preview = document.getElementById('cs-icon-preview');                                                                                                                      
+        const placeholder = document.getElementById('cs-icon-placeholder');                                                                                                              
+        preview.src = URL.createObjectURL(file);                                                                                                                                         
+        preview.hidden = false;                                                                                                                                                          
+        placeholder.style.display = 'none';                                                                                                                                              
+    }); 
+    
+});
