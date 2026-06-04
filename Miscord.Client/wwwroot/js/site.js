@@ -141,8 +141,9 @@ function appendMessage(user, message, pfp, messageId, attachmentFileName, attach
             }
         }
 
-        const parentAvatarHtml = (parentAuthorPfp || parentUid)
-            ? `<img class="reply-parent-avatar" src="/Server/GetProfilePicture?userId=${parentUid}" loading="lazy" />` 
+        const hasParentPfp = parentAuthorPfp && parentAuthorPfp.trim().length > 0;
+        const parentAvatarHtml = hasParentPfp
+            ? `<img class="reply-parent-avatar" src="data:image/png;base64,${parentAuthorPfp}" loading="lazy" />` 
             : `<div class="reply-parent-avatar" style="background-color: ${getUserColor(parentAuthorName)}; width:16px; height:16px; border-radius:50%; display:inline-block;"></div>`;
 
         replyHtml = `
@@ -170,8 +171,9 @@ function appendMessage(user, message, pfp, messageId, attachmentFileName, attach
             </div>`;
     } else {
         const initial = (user || '?').charAt(0).toUpperCase();
-        const avatarHtml = currentUserId 
-            ? `<img src="/Server/GetProfilePicture?userId=${currentUserId}" loading="lazy" />` 
+        const hasPfp = pfp && pfp.trim().length > 0;
+        const avatarHtml = hasPfp 
+            ? `<img src="data:image/png;base64,${pfp}" loading="lazy" />` 
             : `<span>${escapeHtml(initial)}</span>`;
 
         div.className = 'message-item' + (isReply ? ' has-reply' : '');
@@ -179,7 +181,7 @@ function appendMessage(user, message, pfp, messageId, attachmentFileName, attach
             ${actionsBarHtml}
             ${replyHtml}
             <div class="message-content-row">
-                <div class="msg-avatar" data-userid="${currentUserId}" style="background-color: ${currentUserId ? 'transparent' : color}" title="${escapeHtml(user)}">
+                <div class="msg-avatar" data-userid="${currentUserId}" style="background-color: ${hasPfp ? 'transparent' : color}" title="${escapeHtml(user)}">
                     ${avatarHtml}
                 </div>
                 <div class="msg-body">

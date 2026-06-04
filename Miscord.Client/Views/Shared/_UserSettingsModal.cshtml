@@ -1,0 +1,713 @@
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<Miscord.Data.Models.ApplicationUser> UserManager
+@{
+    var currentUser = await UserManager.GetUserAsync(User);
+    var userColor = "hsl(" + (Math.Abs((currentUser?.UserName ?? "A").GetHashCode()) % 360) + ", 50%, 50%)";
+}
+
+<!-- ═══════════════════════════════════════════════════════
+     User Settings Modal (Discord-style Full-screen App Settings)
+     ═══════════════════════════════════════════════════════ -->
+<div id="user-settings-modal" class="us-backdrop" role="dialog" aria-modal="true" aria-labelledby="us-modal-title">
+    
+    <div class="us-container">
+        
+        <!-- Left Sidebar Navigation -->
+        <aside class="us-sidebar">
+            <div class="us-nav-section-header">USER SETTINGS</div>
+            <button type="button" class="us-nav-item active" data-tab="us-tab-account">My Account</button>
+            <button type="button" class="us-nav-item" data-tab="us-tab-profile">User Profile</button>
+            
+            <div class="us-nav-divider"></div>
+            
+            <!-- Log Out form styled as a nav item -->
+            <form asp-controller="Account" asp-action="Logout" method="post" class="us-logout-form">
+                <button type="submit" class="us-nav-item us-nav-item--logout">
+                    Log Out
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <polyline points="16 17 21 12 16 7"/>
+                        <line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                </button>
+            </form>
+        </aside>
+
+        <!-- Right Content Panels -->
+        <main class="us-content-wrap">
+            
+            <!-- Close Button (ESC) -->
+            <div class="us-close-btn-container">
+                <button type="button" class="us-close-btn" onclick="closeUserSettingsModal()" aria-label="Close settings">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+                <div class="us-close-hint">ESC</div>
+            </div>
+
+            <!-- Tab 1: My Account -->
+            <div id="us-tab-account" class="us-tab-content active">
+                <h2 id="us-modal-title" class="us-section-title">My Account</h2>
+                
+                <div class="us-account-card">
+                    <!-- Banner -->
+                    <div class="us-card-banner" style="background-color: @userColor;"></div>
+                    
+                    <div class="us-card-content">
+                        <div class="us-card-header">
+                            <div class="us-card-avatar-wrapper" style="background-color: @(currentUser?.ProfilePictureData != null ? "transparent" : userColor)">
+                                @if (currentUser?.ProfilePictureData != null)
+                                {
+                                    <img class="us-card-avatar" src="/Server/GetProfilePicture?userId=@currentUser.Id" alt="User avatar" />
+                                }
+                                else
+                                {
+                                    <span class="us-card-avatar-initial">@(currentUser?.UserName?.Substring(0, 1).ToUpper() ?? "?")</span>
+                                }
+                            </div>
+                            <div class="us-card-user-info">
+                                <span class="us-card-username">@(currentUser?.Nickname ?? currentUser?.UserName)</span>
+                                <span class="us-card-tag">@currentUser?.UserName</span>
+                            </div>
+                        </div>
+
+                        <div class="us-card-fields-list">
+                            <div class="us-card-field-row">
+                                <div class="us-field-col">
+                                    <span class="us-field-label">USERNAME</span>
+                                    <span class="us-field-value">@currentUser?.UserName</span>
+                                </div>
+                                <button type="button" class="us-btn us-btn--secondary" onclick="showUsernameEditForm()">Edit</button>
+                            </div>
+                            <div class="us-card-field-row">
+                                <div class="us-field-col">
+                                    <span class="us-field-label">DISPLAY NICKNAME</span>
+                                    <span class="us-field-value">@(currentUser?.Nickname ?? "No custom nickname set")</span>
+                                </div>
+                                <button type="button" class="us-btn us-btn--secondary" onclick="showUsernameEditForm()">Edit</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Username/Nickname Edit Form (Initially Hidden) -->
+                <form id="us-form-username" class="us-edit-form" style="display: none;" method="post" action="/Account/UpdateUsername">
+                    @Html.AntiForgeryToken()
+                    <h3 class="us-sub-title">Change Username & Nickname</h3>
+                    <div class="us-input-group">
+                        <label class="us-label" for="us-input-username">USERNAME</label>
+                        <input type="text" id="us-input-username" name="username" class="us-input" value="@currentUser?.UserName" required />
+                    </div>
+                    <div class="us-input-group">
+                        <label class="us-label" for="us-input-nickname">DISPLAY NICKNAME</label>
+                        <input type="text" id="us-input-nickname" name="nickname" class="us-input" value="@currentUser?.Nickname" placeholder="Leave empty to use username" />
+                    </div>
+                    <div class="us-input-group">
+                        <label class="us-label" for="us-input-confirm-password-user">CURRENT PASSWORD</label>
+                        <input type="password" id="us-input-confirm-password-user" name="currentPassword" class="us-input" placeholder="Confirm your password to make updates" required />
+                    </div>
+                    <div class="us-form-actions">
+                        <button type="button" class="us-btn us-btn--ghost" onclick="hideUsernameEditForm()">Cancel</button>
+                        <button type="submit" class="us-btn us-btn--primary">Save Changes</button>
+                    </div>
+                </form>
+
+                <div class="us-divider"></div>
+
+                <!-- Password Update Form -->
+                <form id="us-form-password" class="us-edit-form" method="post" action="/Account/ChangePassword">
+                    @Html.AntiForgeryToken()
+                    <h3 class="us-sub-title">Password Update</h3>
+                    <div class="us-input-group">
+                        <label class="us-label" for="us-input-current-pass">CURRENT PASSWORD</label>
+                        <input type="password" id="us-input-current-pass" name="currentPassword" class="us-input" required />
+                    </div>
+                    <div class="us-input-group">
+                        <label class="us-label" for="us-input-new-pass">NEW PASSWORD</label>
+                        <input type="password" id="us-input-new-pass" name="newPassword" class="us-input" required />
+                    </div>
+                    <div class="us-input-group">
+                        <label class="us-label" for="us-input-confirm-pass">CONFIRM NEW PASSWORD</label>
+                        <input type="password" id="us-input-confirm-pass" name="confirmPassword" class="us-input" required />
+                    </div>
+                    <button type="submit" class="us-btn us-btn--primary">Update Password</button>
+                </form>
+            </div>
+
+            <!-- Tab 2: User Profile -->
+            <div id="us-tab-profile" class="us-tab-content">
+                <h2 class="us-section-title">User Profile</h2>
+                
+                <form id="us-form-profile" class="us-edit-form" method="post" enctype="multipart/form-data" action="/Account/UpdateProfile">
+                    @Html.AntiForgeryToken()
+                    
+                    <!-- Circular Profile Picture Upload -->
+                    <div class="us-pfp-edit-section">
+                        <div class="us-pfp-preview-container">
+                            <label for="us-pfp-input" class="us-pfp-label" title="Change Avatar">
+                                <div class="us-pfp-circle" style="background-color: @(currentUser?.ProfilePictureData != null ? "transparent" : userColor)">
+                                    @if (currentUser?.ProfilePictureData != null)
+                                    {
+                                        <img id="us-pfp-preview" src="/Server/GetProfilePicture?userId=@currentUser.Id" alt="Avatar preview" />
+                                    }
+                                    else
+                                    {
+                                        <span id="us-pfp-placeholder-initial" class="us-card-avatar-initial">@(currentUser?.UserName?.Substring(0, 1).ToUpper() ?? "?")</span>
+                                        <img id="us-pfp-preview" src="" alt="Avatar preview" style="display: none;" />
+                                    }
+                                    <div class="us-pfp-hover-overlay">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                                            <circle cx="12" cy="13" r="4"/>
+                                        </svg>
+                                        <span>CHANGE AVATAR</span>
+                                    </div>
+                                </div>
+                            </label>
+                            <input type="file" id="us-pfp-input" name="profilePicture" accept="image/*" class="us-pfp-file-input" />
+                        </div>
+                        <div class="us-pfp-info">
+                            <h4 class="us-info-title">Profile Picture</h4>
+                            <p class="us-info-text">Upload a PNG, JPG, or SVG image. Minimum size recommended: 128x128.</p>
+                        </div>
+                    </div>
+
+                    <div class="us-divider"></div>
+
+                    <!-- Pronouns -->
+                    <div class="us-input-group">
+                        <label class="us-label" for="us-input-pronouns">PRONOUNS</label>
+                        <input type="text" id="us-input-pronouns" name="pronouns" class="us-input" placeholder="e.g. they/them" maxlength="40" autocomplete="off" />
+                    </div>
+
+                    <!-- About Me (Bio) -->
+                    <div class="us-input-group">
+                        <label class="us-label" for="us-input-bio">ABOUT ME</label>
+                        <textarea id="us-input-bio" name="bio" class="us-input us-textarea" placeholder="Tell people a little about yourself..." maxlength="200"></textarea>
+                    </div>
+
+                    <button type="submit" class="us-btn us-btn--primary">Save Profile Changes</button>
+                </form>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     Styling for User Settings Modal
+     ═══════════════════════════════════════════════════════ -->
+<style>
+/* Backdrop - Full page takeover */
+.us-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #313338;
+    z-index: 2000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.1, 0.9, 0.2, 1);
+    transform: scale(1.05);
+    display: flex;
+    justify-content: center;
+}
+.us-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1);
+}
+
+/* Internal Layout container */
+.us-container {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    max-width: 1280px;
+}
+
+/* Sidebar Navigation */
+.us-sidebar {
+    width: 240px;
+    background: #2b2d31;
+    flex-shrink: 0;
+    padding: 60px 10px 60px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.us-nav-section-header {
+    font-size: 11px;
+    font-weight: 700;
+    color: #949ba4;
+    padding: 6px 10px;
+    letter-spacing: 0.25px;
+    margin-bottom: 4px;
+}
+.us-nav-item {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #b5bac1;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: left;
+    padding: 8px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+.us-nav-item:hover {
+    background: rgba(78, 80, 88, 0.3);
+    color: #dbdee1;
+}
+.us-nav-item.active {
+    background: rgba(78, 80, 88, 0.6);
+    color: #fff;
+}
+.us-nav-divider {
+    height: 1px;
+    background: #35373c;
+    margin: 8px 10px;
+}
+.us-logout-form {
+    width: 100%;
+    margin: 0;
+}
+.us-nav-item--logout {
+    color: #f23f43;
+}
+.us-nav-item--logout:hover {
+    background: rgba(242, 63, 67, 0.1);
+    color: #f23f43;
+}
+
+/* Right Content Wrap */
+.us-content-wrap {
+    flex: 1;
+    background: #313338;
+    padding: 60px 40px;
+    overflow-y: auto;
+    position: relative;
+}
+
+/* ESC/Close Button (Right Column) */
+.us-close-btn-container {
+    position: absolute;
+    top: 60px;
+    right: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+.us-close-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid #b5bac1;
+    background: transparent;
+    color: #b5bac1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+.us-close-btn:hover {
+    background: rgba(242, 63, 67, 0.1);
+    color: #f23f43;
+    border-color: #f23f43;
+}
+.us-close-hint {
+    font-size: 11px;
+    font-weight: 700;
+    color: #b5bac1;
+    letter-spacing: 0.5px;
+}
+.us-close-btn:hover + .us-close-hint {
+    color: #f23f43;
+}
+
+/* Section Title */
+.us-section-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 24px;
+}
+.us-sub-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    margin-top: 12px;
+    margin-bottom: 16px;
+}
+
+/* Tab Panels */
+.us-tab-content {
+    display: none;
+    max-width: 660px;
+    animation: usFadeIn 0.2s ease-out;
+}
+.us-tab-content.active {
+    display: block;
+}
+
+@@keyframes usFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* User Account Summary Card */
+.us-account-card {
+    background: #1e1f22;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 28px;
+}
+.us-card-banner {
+    height: 60px;
+    width: 100%;
+}
+.us-card-content {
+    padding: 16px;
+    position: relative;
+}
+.us-card-header {
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    margin-top: -45px;
+    margin-bottom: 20px;
+}
+.us-card-avatar-wrapper {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 6px solid #1e1f22;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.us-card-avatar {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.us-card-avatar-initial {
+    font-size: 32px;
+    font-weight: 700;
+    color: #fff;
+}
+.us-card-user-info {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 6px;
+}
+.us-card-username {
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+}
+.us-card-tag {
+    font-size: 13px;
+    color: #b5bac1;
+}
+
+/* Card fields */
+.us-card-fields-list {
+    background: #2b2d31;
+    border-radius: 8px;
+    padding: 8px 16px;
+    display: flex;
+    flex-direction: column;
+}
+.us-card-field-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid #35373c;
+}
+.us-card-field-row:last-child {
+    border-bottom: none;
+}
+.us-field-col {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.us-field-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #b5bac1;
+}
+.us-field-value {
+    font-size: 14px;
+    color: #dbdee1;
+}
+
+/* Edit form fields */
+.us-edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+.us-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.us-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #b5bac1;
+    letter-spacing: 0.25px;
+}
+.us-input {
+    background: #1e1f22;
+    border: 1px solid transparent;
+    outline: none;
+    border-radius: 4px;
+    padding: 10px;
+    color: #dbdee1;
+    font-size: 14px;
+    transition: border-color 0.15s ease;
+}
+.us-input:focus {
+    border-color: #5865f2;
+}
+.us-textarea {
+    resize: none;
+    height: 100px;
+    font-family: inherit;
+}
+.us-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+/* Buttons */
+.us-btn {
+    border: none;
+    outline: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+.us-btn--primary {
+    background: #5865f2;
+    color: #fff;
+}
+.us-btn--primary:hover {
+    background: #4752c4;
+}
+.us-btn--secondary {
+    background: #4e5058;
+    color: #fff;
+}
+.us-btn--secondary:hover {
+    background: #6d6f78;
+}
+.us-btn--ghost {
+    background: transparent;
+    color: #fff;
+}
+.us-btn--ghost:hover {
+    text-decoration: underline;
+}
+.us-btn--link {
+    background: transparent;
+    color: #b5bac1;
+}
+.us-btn--link:hover {
+    color: #fff;
+    text-decoration: underline;
+}
+
+.us-divider {
+    height: 1px;
+    background: #3f4147;
+    margin: 32px 0;
+}
+
+/* Profile Picture Custom Uploader */
+.us-pfp-edit-section {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+.us-pfp-preview-container {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    cursor: pointer;
+}
+.us-pfp-circle {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+#us-pfp-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.us-pfp-hover-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+.us-pfp-hover-overlay span {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.25px;
+    text-align: center;
+}
+.us-pfp-preview-container:hover .us-pfp-hover-overlay {
+    opacity: 1;
+}
+.us-pfp-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.us-info-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+}
+.us-info-text {
+    font-size: 12px;
+    color: #949ba4;
+    max-width: 320px;
+    line-height: 1.4;
+}
+.us-pfp-file-input {
+    display: none;
+}
+</style>
+
+<!-- ═══════════════════════════════════════════════════════
+     Javascript Logic for Tabs and Modals
+     ═══════════════════════════════════════════════════════ -->
+<script>
+// Open/Close functions
+function openUserSettingsModal() {
+    const modal = document.getElementById('user-settings-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        // Delay adding open class slightly so CSS transitions trigger correctly
+        setTimeout(() => {
+            modal.classList.add('open');
+        }, 10);
+    }
+}
+
+function closeUserSettingsModal() {
+    const modal = document.getElementById('user-settings-modal');
+    if (modal) {
+        modal.classList.remove('open');
+        // Hide after transition ends (200ms)
+        setTimeout(() => {
+            modal.style.display = 'none';
+        }, 200);
+    }
+}
+
+// Esc key listener
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        const modal = document.getElementById('user-settings-modal');
+        if (modal && modal.classList.contains('open')) {
+            closeUserSettingsModal();
+        }
+    }
+});
+
+// Sidebar Tab Toggling
+document.querySelectorAll('.us-sidebar .us-nav-item:not(.us-nav-item--logout)').forEach(btn => {
+    btn.addEventListener('click', function() {
+        // Toggle Nav Items Active Status
+        document.querySelectorAll('.us-sidebar .us-nav-item').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+
+        // Toggle Content Panels
+        const targetTabId = this.getAttribute('data-tab');
+        document.querySelectorAll('.us-content-wrap .us-tab-content').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        document.getElementById(targetTabId).classList.add('active');
+    });
+});
+
+// Edit Username toggle
+function showUsernameEditForm() {
+    document.querySelector('.us-account-card').style.display = 'none';
+    document.getElementById('us-form-username').style.display = 'flex';
+}
+
+function hideUsernameEditForm() {
+    document.getElementById('us-form-username').style.display = 'none';
+    document.querySelector('.us-account-card').style.display = 'block';
+    // Clear password confirm input
+    document.getElementById('us-input-confirm-password-user').value = '';
+}
+
+// Profile picture upload preview
+const pfpInput = document.getElementById('us-pfp-input');
+const pfpPreview = document.getElementById('us-pfp-preview');
+const pfpPlaceholder = document.getElementById('us-pfp-placeholder-initial');
+
+if (pfpInput) {
+    pfpInput.addEventListener('change', function() {
+        const file = this.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                if (pfpPreview) {
+                    pfpPreview.src = e.target.result;
+                    pfpPreview.style.display = 'block';
+                }
+                if (pfpPlaceholder) {
+                    pfpPlaceholder.style.display = 'none';
+                }
+            }
+            reader.readAsDataURL(file);
+        }
+    });
+}
+</script>
