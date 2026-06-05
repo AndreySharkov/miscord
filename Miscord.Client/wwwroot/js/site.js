@@ -539,13 +539,16 @@ document.addEventListener('DOMContentLoaded', () => {
     })
     document.querySelectorAll('.cs-type-option').forEach(btn => {
         btn.addEventListener('click', () => {
-            document.querySelectorAll('.cs-type-option').value = btn.dataset.type;
+            const serverTypeInput = document.getElementById('cs-server-type');
+            if (serverTypeInput) {
+                serverTypeInput.value = btn.dataset.type || '';
+            }
             goToStep('cs-step-customize');
         })
     })
     document.getElementById('cs-back-btn').addEventListener('click', () => goToStep('cs-step-type'));
 
-    document.getElementById('cs-cancel-btn').addEventListener('clcick', () => goToStep('cs-step-type'));
+    document.getElementById('cs-cancel-btn').addEventListener('click', () => goToStep('cs-step-type'));
 
     document.getElementById('cs-icon-input').addEventListener('change', (e) => {                                                                                                         
         const file = e.target.files[0];                                                                                                                                                  
@@ -558,5 +561,37 @@ document.addEventListener('DOMContentLoaded', () => {
         preview.hidden = false;                                                                                                                                                          
         placeholder.style.display = 'none';                                                                                                                                              
     }); 
-    
+
+    // Handle AJAX form submission for Server Creation
+    const serverForm = document.getElementById('create-server-form');
+    if (serverForm) {
+        serverForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const nameInput = document.getElementById('cs-server-name');
+            if (!nameInput || !nameInput.value.trim()) {
+                alert('Please enter a server name.');
+                return;
+            }
+
+            const formData = new FormData(this);
+
+            fetch('/Server/CreateServer', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => {
+                if (!res.ok) throw new Error('Failed to create server.');
+                return res.json();
+            })
+            .then(data => {
+                closeCreateServerModal();
+                // Redirect to the newly created server detail page
+                window.location.href = '/Server/Details/' + data.serverId;
+            })
+            .catch(err => {
+                console.error('Error creating server:', err);
+                alert('Failed to create server. Please check your inputs.');
+            });
+        });
+    }
 });
