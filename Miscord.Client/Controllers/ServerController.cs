@@ -12,6 +12,7 @@ using Miscord.Client.Hubs;
 using Miscord.Client.Models;
 using Miscord.Data.Models;
 using System.Security.Claims;
+using Microsoft.Identity.Client;
 
 
 namespace Miscord.Client.Controllers
@@ -291,11 +292,20 @@ namespace Miscord.Client.Controllers
                 return Unauthorized();
             }
 
+
             var server = new Server
             {
                 Name = ServerName,
                 OwnerId = userId
             };
+            if (serverIcon != null && serverIcon.Length > 0)
+            {
+                using (var ms = new MemoryStream())
+                {
+                    await serverIcon.CopyToAsync(ms);
+                    server.IconData = ms.ToArray();
+                }
+            }
             _context.Servers.Add(server);
             await _context.SaveChangesAsync();
 
@@ -310,7 +320,7 @@ namespace Miscord.Client.Controllers
                 Name = "announcements",
                 ServerId = server.Id
             };
-            _context.Channels.Add(channel);
+            _context.Channels.Add(channel2);
             switch(serverType)
             {
                 case "gaming":
@@ -360,5 +370,22 @@ namespace Miscord.Client.Controllers
 
             return Ok(new { serverId = server.Id });
         }
+        [HttpGet]
+        public async Task<IActionResult> GetServerIcon(int serverId)
+        {
+                var server = await _context.Servers
+                    .AsNoTracking()
+                    .Select(s => new { s.Id, s.IconData })
+                    .FirstOrDefaultAsync(s => s.Id == serverId);
+
+                if (server == null || server.IconData == null)
+                {
+                    return NotFound();
+                }
+
+                Response.Headers["Cache-Control"] = "public, max-age=3600";
+            return File(server.IconData, "image/png");
+        }
+            
     }
 }

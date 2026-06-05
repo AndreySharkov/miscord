@@ -70,12 +70,17 @@ namespace Miscord.Client.Controllers
         {
             if (ModelState.IsValid)
             {
-                var user = new ApplicationUser { UserName = model.Username, Email = model.Email };
+                var user = new ApplicationUser { 
+                    UserName = model.Username, 
+                    Email = model.Email,
+                    CreatedAt = DateTime.UtcNow
+                };
                 var result = await _userManager.CreateAsync(user, model.Password);
                 if (result.Succeeded)
                 {
                     await _userManager.AddToRoleAsync(user, "User");
                     await _signInManager.SignInAsync(user, isPersistent: false);
+
                     return RedirectToAction("Index", "Home");
                 }
                 foreach (var error in result.Errors)
@@ -85,5 +90,20 @@ namespace Miscord.Client.Controllers
             }
             return View(model);
         }
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateUsername(string username, 
+            string nickname,
+            string currentPassword)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+            
+
+        }
+
     }
 }

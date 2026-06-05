@@ -10,11 +10,16 @@ namespace Miscord.Data.Models
     {
         public string? Nickname { get; set; } 
         public byte[]? ProfilePictureData { get; set; }
+        public string? Pronouns { get; set; }
+        public string? Bio { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public ICollection<Server> OwnedServers { get; set; } = new List<Server>();
         public ICollection<Message> Messages { get; set; } = new List<Message>();
 
         public bool IsDeleted { get; set; } = false;
+
+        
 
     }
 }

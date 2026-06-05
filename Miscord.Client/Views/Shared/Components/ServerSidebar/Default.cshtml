@@ -5,7 +5,7 @@
     <!-- Home button -->
     <div class="server-icon-wrapper">
         <a class="server-icon home" href="/" title="Home">
-            <img src="/gurimilishi.png" width="24" height="24" alt="Home" />
+            <img src="/gurimilishi.png" width="30" height="30" alt="Home" />
         </a>
     </div>
 
@@ -15,9 +15,17 @@
     {
         <div class="server-icon-wrapper" id="server-wrapper-@server.Id">
             <a class="server-icon"
-               href="javascript:void(0)"
-               onclick="loadServer(@server.Id, this)"
-               title="@server.Name">
+                href="javascript:void(0)"
+                onclick="loadServer(@server.Id, this)"
+                title="@server.Name">
+                @if (server.IconData != null)
+                {
+                    <img src="/Server/GetServerIcon?serverId=@server.Id" alt="@server.Name" style="width:100%; height:100%; object-fit:cover; border-radius:inherit;" />
+                }
+                else
+                {
+                    @server.Name.Substring(0, Math.Min(2, server.Name.Length)).ToUpper()
+                }
                 @server.Name.Substring(0, Math.Min(2, server.Name.Length)).ToUpper()
             </a>
         </div>

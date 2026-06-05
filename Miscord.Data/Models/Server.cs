@@ -19,6 +19,7 @@ namespace Miscord.Data.Models
         [Required]
         public string OwnerId { get; set; } = null!;
         public ApplicationUser Owner { get; set; } = null!;
+        public byte[]? IconData { get; set; }
 
         public ICollection<Channel> Channels { get; set; } = new List<Channel>();
 
