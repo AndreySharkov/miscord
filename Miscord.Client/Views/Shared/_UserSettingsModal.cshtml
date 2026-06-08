@@ -86,23 +86,20 @@
                                     <span class="us-field-label">DISPLAY NICKNAME</span>
                                     <span class="us-field-value">@(currentUser?.Nickname ?? "No custom nickname set")</span>
                                 </div>
-                                <button type="button" class="us-btn us-btn--secondary" onclick="showUsernameEditForm()">Edit</button>
+                                <button type="button" class="us-btn us-btn--secondary" onclick="showNicknameEditForm()">Edit</button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Username/Nickname Edit Form (Initially Hidden) -->
+                <!-- Username Edit Form (Initially Hidden) -->
                 <form id="us-form-username" class="us-edit-form" style="display: none;" method="post" action="/Account/UpdateUsername">
                     @Html.AntiForgeryToken()
-                    <h3 class="us-sub-title">Change Username & Nickname</h3>
+                    <h3 class="us-sub-title">Change Username</h3>
+                    <div class="us-form-message" id="us-msg-username"></div>
                     <div class="us-input-group">
                         <label class="us-label" for="us-input-username">USERNAME</label>
                         <input type="text" id="us-input-username" name="username" class="us-input" value="@currentUser?.UserName" required />
-                    </div>
-                    <div class="us-input-group">
-                        <label class="us-label" for="us-input-nickname">DISPLAY NICKNAME</label>
-                        <input type="text" id="us-input-nickname" name="nickname" class="us-input" value="@currentUser?.Nickname" placeholder="Leave empty to use username" />
                     </div>
                     <div class="us-input-group">
                         <label class="us-label" for="us-input-confirm-password-user">CURRENT PASSWORD</label>
@@ -114,12 +111,28 @@
                     </div>
                 </form>
 
+                <!-- Nickname Edit Form (Initially Hidden) -->
+                <form id="us-form-nickname" class="us-edit-form" style="display: none;" method="post" action="/Account/UpdateNickname">
+                    @Html.AntiForgeryToken()
+                    <h3 class="us-sub-title">Change Display Nickname</h3>
+                    <div class="us-form-message" id="us-msg-nickname"></div>
+                    <div class="us-input-group">
+                        <label class="us-label" for="us-input-nickname-edit">DISPLAY NICKNAME</label>
+                        <input type="text" id="us-input-nickname-edit" name="nickname" class="us-input" value="@currentUser?.Nickname" placeholder="Leave empty to use username" />
+                    </div>
+                    <div class="us-form-actions">
+                        <button type="button" class="us-btn us-btn--ghost" onclick="hideNicknameEditForm()">Cancel</button>
+                        <button type="submit" class="us-btn us-btn--primary">Save Changes</button>
+                    </div>
+                </form>
+
                 <div class="us-divider"></div>
 
                 <!-- Password Update Form -->
                 <form id="us-form-password" class="us-edit-form" method="post" action="/Account/ChangePassword">
                     @Html.AntiForgeryToken()
                     <h3 class="us-sub-title">Password Update</h3>
+                    <div class="us-form-message" id="us-msg-password"></div>
                     <div class="us-input-group">
                         <label class="us-label" for="us-input-current-pass">CURRENT PASSWORD</label>
                         <input type="password" id="us-input-current-pass" name="currentPassword" class="us-input" required />
@@ -142,6 +155,7 @@
                 
                 <form id="us-form-profile" class="us-edit-form" method="post" enctype="multipart/form-data" action="/Account/UpdateProfile">
                     @Html.AntiForgeryToken()
+                    <div class="us-form-message" id="us-msg-profile"></div>
                     
                     <!-- Circular Profile Picture Upload -->
                     <div class="us-pfp-edit-section">
@@ -179,13 +193,13 @@
                     <!-- Pronouns -->
                     <div class="us-input-group">
                         <label class="us-label" for="us-input-pronouns">PRONOUNS</label>
-                        <input type="text" id="us-input-pronouns" name="pronouns" class="us-input" placeholder="e.g. they/them" maxlength="40" autocomplete="off" />
+                        <input type="text" id="us-input-pronouns" name="pronouns" class="us-input" value="@currentUser?.Pronouns" placeholder="e.g. they/them" maxlength="40" autocomplete="off" />
                     </div>
 
                     <!-- About Me (Bio) -->
                     <div class="us-input-group">
                         <label class="us-label" for="us-input-bio">ABOUT ME</label>
-                        <textarea id="us-input-bio" name="bio" class="us-input us-textarea" placeholder="Tell people a little about yourself..." maxlength="200"></textarea>
+                        <textarea id="us-input-bio" name="bio" class="us-input us-textarea" placeholder="Tell people a little about yourself..." maxlength="200">@currentUser?.Bio</textarea>
                     </div>
 
                     <button type="submit" class="us-btn us-btn--primary">Save Profile Changes</button>
@@ -619,6 +633,28 @@
 .us-pfp-file-input {
     display: none;
 }
+
+/* Form Message Styling */
+.us-form-message {
+    padding: 10px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    margin-bottom: 12px;
+    display: none;
+    line-height: 1.4;
+}
+.us-form-message.success {
+    background: rgba(35, 165, 89, 0.1);
+    color: #23a559;
+    border: 1px solid #23a559;
+    display: block;
+}
+.us-form-message.error {
+    background: rgba(242, 63, 66, 0.1);
+    color: #f23f42;
+    border: 1px solid #f23f42;
+    display: block;
+}
 </style>
 
 <!-- ═══════════════════════════════════════════════════════
@@ -670,7 +706,8 @@ document.querySelectorAll('.us-sidebar .us-nav-item:not(.us-nav-item--logout)').
         document.querySelectorAll('.us-content-wrap .us-tab-content').forEach(tab => {
             tab.classList.remove('active');
         });
-        document.getElementById(targetTabId).classList.add('active');
+        const targetTab = document.getElementById(targetTabId);
+        if (targetTab) targetTab.classList.add('active');
     });
 });
 
@@ -684,8 +721,97 @@ function hideUsernameEditForm() {
     document.getElementById('us-form-username').style.display = 'none';
     document.querySelector('.us-account-card').style.display = 'block';
     // Clear password confirm input
-    document.getElementById('us-input-confirm-password-user').value = '';
+    const passInput = document.getElementById('us-input-confirm-password-user');
+    if (passInput) passInput.value = '';
+    // Clear messages
+    document.getElementById('us-msg-username').style.display = 'none';
 }
+
+// Edit Nickname toggle
+function showNicknameEditForm() {
+    document.querySelector('.us-account-card').style.display = 'none';
+    document.getElementById('us-form-nickname').style.display = 'flex';
+}
+
+function hideNicknameEditForm() {
+    document.getElementById('us-form-nickname').style.display = 'none';
+    document.querySelector('.us-account-card').style.display = 'block';
+    document.getElementById('us-msg-nickname').style.display = 'none';
+}
+
+// Generic Form AJAX handler
+function handleSettingsFormSubmit(formId, messageId, successCallback) {
+    const form = document.getElementById(formId);
+    if (!form) return;
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const msgDiv = document.getElementById(messageId);
+        msgDiv.style.display = 'none';
+        msgDiv.className = 'us-form-message';
+
+        const formData = new FormData(this);
+        
+        fetch(this.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                msgDiv.textContent = data.message || 'Updated successfully!';
+                msgDiv.classList.add('success');
+                if (successCallback) successCallback(data);
+                
+                // Hide success message after 3 seconds
+                setTimeout(() => {
+                    msgDiv.style.display = 'none';
+                }, 3000);
+            } else {
+                msgDiv.textContent = data.message || 'An error occurred.';
+                msgDiv.classList.add('error');
+            }
+        })
+        .catch(err => {
+            console.error('Update error:', err);
+            msgDiv.textContent = 'A network error occurred. Please try again.';
+            msgDiv.classList.add('error');
+        });
+    });
+}
+
+// Initialize form handlers
+document.addEventListener('DOMContentLoaded', function() {
+    // Username Update
+    handleSettingsFormSubmit('us-form-username', 'us-msg-username', function(data) {
+        // Refresh page or update UI components
+        setTimeout(() => location.reload(), 1000);
+    });
+
+    // Nickname Update
+    handleSettingsFormSubmit('us-form-nickname', 'us-msg-nickname', function(data) {
+        // Update the nickname in the account card without refresh if possible, or just reload
+        setTimeout(() => location.reload(), 1000);
+    });
+
+    // Password Update
+    handleSettingsFormSubmit('us-form-password', 'us-msg-password', function(data) {
+        // Clear inputs on success
+        document.getElementById('us-input-current-pass').value = '';
+        document.getElementById('us-input-new-pass').value = '';
+        document.getElementById('us-input-confirm-pass').value = '';
+    });
+
+    // Profile Update (Pronouns, Bio, PFP)
+    handleSettingsFormSubmit('us-form-profile', 'us-msg-profile', function(data) {
+        // Update the PFP in the header if changed
+        setTimeout(() => location.reload(), 1000);
+    });
+});
 
 // Profile picture upload preview
 const pfpInput = document.getElementById('us-pfp-input');

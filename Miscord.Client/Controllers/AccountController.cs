@@ -92,17 +92,117 @@ namespace Miscord.Client.Controllers
         }
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> UpdateUsername(string username, 
-            string nickname,
-            string currentPassword)
+        public async Task<IActionResult> UpdateUsername(string username, string currentPassword)
         {
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
             {
                 return Unauthorized();
             }
-            
+            var passwordCheck = await _userManager.CheckPasswordAsync(user, currentPassword);
+            if (!passwordCheck)
+            {
+                return Json(new { success = false, message = "Incorrect current password." });
+            }
+            if (string.IsNullOrWhiteSpace(username))
+            {
+                return Json(new { success = false, message = "Username cannot be empty." });
+            }
 
+            var existingUser = await _userManager.FindByNameAsync(username);
+            if (existingUser != null && existingUser.Id != user.Id)
+            {
+                return Json(new { success = false, message = "Username is already taken." });
+            }
+
+            user.UserName = username;
+
+            var result = await _userManager.UpdateAsync(user);
+            if (result.Succeeded)
+            {
+                await _signInManager.RefreshSignInAsync(user); // Refresh the sign-in to update claims
+                return Json(new { success = true, message = "Username updated successfully." });
+            }
+            else
+            {
+                var errors = string.Join(" ", result.Errors.Select(e => e.Description));
+                return Json(new { success = false, message = errors });
+            }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateNickname(string? nickname)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            user.Nickname = nickname;
+
+            var result = await _userManager.UpdateAsync(user);
+            if (result.Succeeded)
+            {
+                await _signInManager.RefreshSignInAsync(user); // Refresh the sign-in to update claims
+                return Json(new { success = true, message = "Nickname updated successfully." });
+            }
+            else
+            {
+                var errors = string.Join(" ", result.Errors.Select(e => e.Description));
+                return Json(new { success = false, message = errors });
+            }
+        }
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ChangePassword(string currentPassword, string newPassword, string confirmPassword)
+        {
+            if (newPassword != confirmPassword)
+            {
+                return Json(new { success = false, message = "New password and confirmation do not match." });
+            }
+
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Unauthorized();
+
+            var result = await _userManager.ChangePasswordAsync(user, currentPassword, newPassword);
+            if (result.Succeeded)
+            {
+                await _signInManager.RefreshSignInAsync(user);
+                return Json(new { success = true, message = "Password updated successfully!" });
+            }
+
+            var errors = string.Join(" ", result.Errors.Select(e => e.Description));
+            return Json(new { success = false, message = errors });
+        }
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateProfile(string? pronouns, string? bio, IFormFile? profilePicture)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Unauthorized();
+
+            user.Pronouns = pronouns;
+            user.Bio = bio;
+
+            if (profilePicture != null && profilePicture.Length > 0)
+            {
+                using (var ms = new MemoryStream())
+                {
+                    await profilePicture.CopyToAsync(ms);
+                    user.ProfilePictureData = ms.ToArray();
+                }
+            }
+
+            var result = await _userManager.UpdateAsync(user);
+            if (result.Succeeded)
+            {
+                return Json(new { success = true, message = "Profile updated successfully!" });
+            }
+
+            var errors = string.Join(" ", result.Errors.Select(e => e.Description));
+            return Json(new { success = false, message = errors });
         }
 
     }
