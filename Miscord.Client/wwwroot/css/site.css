@@ -184,6 +184,10 @@ body {
 .channel-category:hover { color: #dbdee1; }
 .channel-category svg   { transition: transform 0.15s ease; }
 
+.category-channels {
+    display: block; /* Shown by default */
+}
+
 /* Channel row */
 .channel-item {
     display: flex;
@@ -1530,4 +1534,158 @@ body {
 .cs-btn--primary:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+/* ─── Tabbed Modal Layout ────────────────────────────────── */
+.cs-modal-tabbed {
+    width: 720px;
+    height: 540px;
+    display: flex;
+    flex-direction: row;
+    padding: 0;
+}
+
+.cs-sidebar {
+    width: 200px;
+    background: #2b2d31;
+    display: flex;
+    flex-direction: column;
+    padding: 60px 6px 60px 20px;
+    flex-shrink: 0;
+}
+
+.cs-sidebar-item {
+    padding: 6px 10px;
+    border-radius: 4px;
+    color: #80848e;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-bottom: 2px;
+}
+
+.cs-sidebar-item:hover {
+    background: rgba(79,84,92,0.16);
+    color: #dbdee1;
+}
+
+.cs-sidebar-item.active {
+    background: rgba(79,84,92,0.32);
+    color: #fff;
+}
+
+.cs-sidebar-header {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #80848e;
+    padding: 6px 10px;
+    margin-bottom: 4px;
+}
+
+.cs-content-wrap {
+    flex: 1;
+    background: #313338;
+    display: flex;
+    flex-direction: column;
+    padding: 60px 40px;
+    overflow-y: auto;
+}
+
+.cs-tab-content {
+    display: none;
+}
+
+.cs-tab-content.active {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Roles Specific */
+.roles-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.role-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #2b2d31;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.role-item:hover {
+    background: #35373c;
+}
+
+.role-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.role-color-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.role-name {
+    font-weight: 500;
+}
+
+/* Dropdown Menu */
+.sidebar-header-dropdown {
+    position: relative;
+    z-index: 100;
+}
+
+.server-dropdown-menu {
+    position: absolute;
+    top: 50px;
+    left: 8px;
+    right: 8px;
+    background: #111214;
+    border-radius: 4px;
+    padding: 8px;
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.24);
+}
+
+.server-dropdown-menu.open {
+    display: flex;
+}
+
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px;
+    border-radius: 2px;
+    color: #b5bac1;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.1s ease, color 0.1s ease;
+}
+
+.dropdown-item:hover {
+    background: #5865f2;
+    color: #fff;
+}
+
+.dropdown-item.invite {
+    color: #949cf7;
+}
+
+.dropdown-item.invite:hover {
+    background: #5865f2;
+    color: #fff;
 }

@@ -21,6 +21,9 @@ namespace Miscord.Data
         public DbSet<Message> Messages { get; set; }
         public DbSet<Reaction> Reactions { get; set; }
         public DbSet<ChannelCategory> ChannelCategories { get; set; }
+        public DbSet<ServerRole> ServerRoles { get; set; }
+        public DbSet<ServerMember> ServerMembers { get; set; }
+        public DbSet<ServerMemberRole> ServerMemberRoles { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -59,6 +62,38 @@ namespace Miscord.Data
                 .WithMany(s => s.ChannelCategories)
                 .HasForeignKey(cc => cc.ServerId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<ServerMember>()
+                .HasOne(sm => sm.Server)
+                .WithMany(s => s.Members)
+                .HasForeignKey(sm => sm.ServerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<ServerMember>()
+                .HasOne(sm => sm.User)
+                .WithMany()
+                .HasForeignKey(sm => sm.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            builder.Entity<ServerRole>()
+                .HasOne(sr => sr.Server)
+                .WithMany(s => s.Roles)
+                .HasForeignKey(sr => sr.ServerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<ServerMemberRole>()
+                .HasKey(smr => new { smr.ServerMemberId, smr.ServerRoleId });
+
+            builder.Entity<ServerMemberRole>()
+                .HasOne(smr => smr.ServerMember)
+                .WithMany(sm => sm.MemberRoles)
+                .HasForeignKey(smr => smr.ServerMemberId);
+
+            builder.Entity<ServerMemberRole>()
+                .HasOne(smr => smr.ServerRole)
+                .WithMany(sr => sr.MemberRoles)
+                .HasForeignKey(smr => smr.ServerRoleId)
+                .OnDelete(DeleteBehavior.NoAction);
                 
             builder.Entity<Message>()
                 .HasQueryFilter(m => !m.IsDeleted);

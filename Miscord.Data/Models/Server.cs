@@ -23,6 +23,8 @@ namespace Miscord.Data.Models
 
         public ICollection<Channel> Channels { get; set; } = new List<Channel>();
         public ICollection<ChannelCategory> ChannelCategories { get; set; } = new List<ChannelCategory>();
+        public ICollection<ServerRole> Roles { get; set; } = new List<ServerRole>();
+        public ICollection<ServerMember> Members { get; set; } = new List<ServerMember>();
 
         public bool IsDeleted { get; set; } = false;
 

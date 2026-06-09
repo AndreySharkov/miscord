@@ -1,21 +1,170 @@
-@model IEnumerable<Miscord.Data.Models.Channel>
+@model Miscord.Data.Models.Server
 
-<!-- Text Channels category -->
-<div class="channel-category">
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="9 18 15 12 9 6"/>
-    </svg>
-    Text Channels
+<input type="hidden" id="current-server-name-val" value="@Model.Name" />
+<input type="hidden" id="current-server-id-val" value="@Model.Id" />
+<input type="hidden" id="current-server-owner-id-val" value="@Model.OwnerId" />
+<input type="hidden" id="current-server-is-admin-val" value="@((ViewData["IsAdmin"] as bool? == true).ToString().ToLower())" />
+
+<div class="channel-list-header">
+    <span>TEXT CHANNELS</span>
+    @if ((bool)(ViewData["IsAdmin"] ?? false) || ViewData["CurrentUserId"] as string == Model.OwnerId)
+    {
+        <button class="add-btn" onclick="openCreateCategoryModal(@Model.Id)" title="Create Category">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+        </button>
+    }
 </div>
 
-@foreach (var channel in Model)
+@if (Model.Channels.Any(c => c.ChannelCategoryId == null))
 {
-    <a class="channel-item"
-       href="javascript:void(0)"
-       onclick="loadChannel(@channel.Id)">
-        <svg class="ch-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <span class="ch-name">@channel.Name</span>
-    </a>
+    @foreach (var channel in Model.Channels.Where(c => c.ChannelCategoryId == null).OrderBy(c => c.Position))
+    {
+        <a class="channel-item"
+           href="javascript:void(0)"
+           onclick="loadChannel(@channel.Id)">
+            <svg class="ch-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <span class="ch-name">@channel.Name</span>
+        </a>
+    }
 }
+
+@foreach (var category in Model.ChannelCategories.OrderBy(cc => cc.Position))
+{
+    <div class="channel-category">
+        <div class="category-header-text" onclick="toggleCategory(@category.Id)">
+            <svg id="category-chevron-@category.Id" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="transition: transform 0.2s;">
+                <polyline points="9 18 15 12 9 6"/>
+            </svg>
+            @category.Name.ToUpper()
+        </div>
+        @if ((bool)(ViewData["IsAdmin"] ?? false) || ViewData["CurrentUserId"] as string == Model.OwnerId)
+        {
+            <button class="add-btn" onclick="openCreateChannelModal(@Model.Id, @category.Id)" title="Create Channel">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+            </button>
+        }
+    </div>
+    
+    <div id="category-channels-@category.Id" class="category-channels">
+        @foreach (var channel in category.Channels.OrderBy(c => c.Position))
+        {
+            <a class="channel-item"
+               href="javascript:void(0)"
+               onclick="loadChannel(@channel.Id)">
+                <svg class="ch-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                <span class="ch-name">@channel.Name</span>
+            </a>
+        }
+    </div>
+}
+
+<style>
+    .channel-list-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 8px 4px 16px;
+        color: #80848e;
+        font-size: 12px;
+        font-weight: 700;
+    }
+    
+    .channel-category {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 8px 4px 18px;
+        color: #80848e;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        user-select: none;
+    }
+    
+    .category-header-text {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex: 1;
+    }
+    
+    .category-header-text:hover {
+        color: #dbdee1;
+    }
+    
+    .add-btn {
+        background: none;
+        border: none;
+        color: #80848e;
+        cursor: pointer;
+        padding: 2px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: color 0.2s, background-color 0.2s;
+    }
+    
+    .add-btn:hover {
+        color: #dbdee1;
+        background-color: rgba(79,84,92,0.16);
+    }
+</style>
+
+<script>
+    if (typeof toggleCategory === 'undefined') {
+        function toggleCategory(categoryId) {
+            const channelsDiv = document.getElementById('category-channels-' + categoryId);
+            const chevron = document.getElementById('category-chevron-' + categoryId);
+            if (channelsDiv.style.display === 'none') {
+                channelsDiv.style.display = 'block';
+                chevron.style.transform = 'rotate(90deg)';
+            } else {
+                channelsDiv.style.display = 'none';
+                chevron.style.transform = 'rotate(0deg)';
+            }
+        }
+    }
+    
+    // Set initial state for chevrons
+    document.querySelectorAll('[id^="category-chevron-"]').forEach(chevron => {
+        chevron.style.transform = 'rotate(90deg)';
+    });
+    
+    function openCreateCategoryModal(serverId) {
+        const name = prompt("Enter category name:");
+        if (name) {
+            const fd = new FormData();
+            fd.append('serverId', serverId);
+            fd.append('name', name);
+            fetch('/Server/CreateCategory', { method: 'POST', body: fd })
+                .then(r => {
+                    if (r.ok) loadServer(serverId);
+                });
+        }
+    }
+    
+    function openCreateChannelModal(serverId, categoryId) {
+        const name = prompt("Enter channel name:");
+        if (name) {
+            const fd = new FormData();
+            fd.append('serverId', serverId);
+            fd.append('name', name);
+            if (categoryId) fd.append('categoryId', categoryId);
+            fetch('/Server/CreateChannel', { method: 'POST', body: fd })
+                .then(r => {
+                    if (r.ok) loadServer(serverId);
+                });
+        }
+    }
+</script>

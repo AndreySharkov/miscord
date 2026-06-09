@@ -57,6 +57,16 @@ namespace Miscord.Data
 
                 context.Servers.Add(defaultServer);
                 await context.SaveChangesAsync();
+
+                // Add owner as a member
+                var member = new ServerMember
+                {
+                    ServerId = defaultServer.Id,
+                    UserId = adminUser.Id,
+                    JoinedAt = DateTime.UtcNow
+                };
+                context.ServerMembers.Add(member);
+                await context.SaveChangesAsync();
             }
         }
     }

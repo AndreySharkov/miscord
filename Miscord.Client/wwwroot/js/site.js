@@ -294,6 +294,7 @@ connection.start().then(function() {
 
 // ─── Server / Channel Loading ──────────────────────────────────────
 function loadServer(serverId, el) {
+    if (!serverId) return;
     document.querySelectorAll('.server-icon-wrapper').forEach(w => w.classList.remove('active'));
     if (el) el.closest('.server-icon-wrapper')?.classList.add('active');
 
@@ -301,7 +302,27 @@ function loadServer(serverId, el) {
         .then(r => r.text())
         .then(html => {
             const list = document.querySelector('.channel-list');
-            if (list) list.innerHTML = html;
+            if (list) {
+                list.innerHTML = html;
+                
+                // Update Server Header
+                const newName = document.getElementById('current-server-name-val')?.value;
+                const headerDropdown = document.getElementById('server-header-dropdown');
+                if (headerDropdown) {
+                    headerDropdown.style.display = 'block';
+                    const headerName = headerDropdown.querySelector('.sidebar-header-name');
+                    if (headerName && newName) headerName.innerText = newName;
+                }
+
+                // Show/Hide Server Settings based on Ownership or Admin status
+                const ownerId = document.getElementById('current-server-owner-id-val')?.value;
+                const currentUserId = document.getElementById('current-user-id')?.value;
+                const isAdmin = document.getElementById('current-server-is-admin-val')?.value === 'true';
+                const settingsItem = document.getElementById('server-settings-dropdown-item');
+                if (settingsItem) {
+                    settingsItem.style.display = (ownerId === currentUserId || isAdmin) ? 'flex' : 'none';
+                }
+            }
         });
 
     const main = document.querySelector('.main-content');
@@ -595,3 +616,269 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+// Server Settings & Dropdown
+function toggleServerDropdown() {
+    const menu = document.getElementById('server-dropdown-menu');
+    const chevron = document.getElementById('header-chevron');
+    if (menu) {
+        menu.classList.toggle('open');
+        if (menu.classList.contains('open')) {
+            chevron.style.transform = 'rotate(180deg)';
+        } else {
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    }
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('server-header-dropdown');
+    const menu = document.getElementById('server-dropdown-menu');
+    const chevron = document.getElementById('header-chevron');
+    if (dropdown && !dropdown.contains(e.target)) {
+        if (menu && menu.classList.contains('open')) {
+            menu.classList.remove('open');
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    }
+});
+
+function openServerSettingsModal() {
+    const modal = document.getElementById('server-settings-modal');
+    if (modal) {
+        const serverName = document.getElementById('current-server-name-val')?.value || document.querySelector('.sidebar-header-name')?.innerText;
+        const serverId = document.getElementById('current-server-id-val')?.value;
+        
+        if (serverId) {
+            document.getElementById('ss-server-id').value = serverId;
+            document.getElementById('ss-server-name').value = serverName || '';
+            modal.classList.add('open');
+            switchSSTab('overview', document.querySelector('.ss-tab'));
+        }
+    }
+    const menu = document.getElementById('server-dropdown-menu');
+    if (menu) menu.classList.remove('open');
+}
+
+function closeServerSettingsModal() {
+    document.getElementById('server-settings-modal')?.classList.remove('open');
+}
+
+function switchSSTab(tabId, el) {
+    document.querySelectorAll('.ss-tab').forEach(t => t.classList.remove('active'));
+    if (el) el.classList.add('active');
+    
+    document.querySelectorAll('.ss-tab-pane').forEach(p => p.classList.remove('active'));
+    document.getElementById('ss-tab-' + tabId).classList.add('active');
+    
+    if (tabId === 'roles') loadRoles();
+    if (tabId === 'members') loadMembers();
+}
+
+const PERMISSIONS = [
+    { name: 'Administrator', flag: 1, desc: 'Gives all permissions and bypasses channel restrictions. Dangerous.' },
+    { name: 'Manage Server', flag: 2, desc: 'Allows changing server name and icon.' },
+    { name: 'Manage Roles', flag: 4, desc: 'Allows creating and editing roles.' },
+    { name: 'Manage Channels', flag: 8, desc: 'Allows creating and deleting channels and categories.' },
+    { name: 'Kick Members', flag: 16, desc: 'Allows kicking members from the server.' },
+    { name: 'Ban Members', flag: 32, desc: 'Allows banning members from the server.' },
+    { name: 'Create Invite', flag: 64, desc: 'Allows creating invite links.' },
+    { name: 'Change Nickname', flag: 128, desc: 'Allows changing own nickname.' },
+    { name: 'Manage Nicknames', flag: 256, desc: 'Allows changing other members\' nicknames.' },
+    { name: 'Send Messages', flag: 512, desc: 'Allows sending messages in text channels.' },
+    { name: 'Embed Links', flag: 1024, desc: 'Allows messages to have rich content.' },
+    { name: 'Attach Files', flag: 2048, desc: 'Allows uploading files and images.' },
+    { name: 'Add Reactions', flag: 4096, desc: 'Allows adding new reactions to messages.' },
+    { name: 'Mention Everyone', flag: 8192, desc: 'Allows using @everyone and @here.' },
+    { name: 'Manage Messages', flag: 16384, desc: 'Allows deleting and pinning messages.' },
+    { name: 'Read Message History', flag: 32768, desc: 'Allows reading past messages.' }
+];
+
+let serverRoles = [];
+
+function loadRoles() {
+    const serverId = document.getElementById('ss-server-id').value;
+    fetch('/Server/GetRoles?serverId=' + serverId)
+        .then(r => r.json())
+        .then(roles => {
+            serverRoles = roles;
+            const container = document.getElementById('roles-list-container');
+            container.innerHTML = '';
+            roles.forEach(role => {
+                const div = document.createElement('div');
+                div.className = 'role-item';
+                div.innerHTML = `<div class="role-color-dot" style="background-color: ${role.color || '#99aab5'}"></div><span>${escapeHtml(role.name)}</span>`;
+                div.onclick = () => editRole(role.id);
+                container.appendChild(div);
+            });
+            document.getElementById('role-edit-container').style.display = 'none';
+        });
+}
+
+function editRole(roleId) {
+    const role = serverRoles.find(r => r.id === roleId);
+    if (!role) return;
+    document.querySelectorAll('.role-item').forEach(item => item.classList.toggle('active', item.innerText === role.name));
+    document.getElementById('role-edit-container').style.display = 'block';
+    document.getElementById('edit-role-id').value = role.id;
+    document.getElementById('edit-role-name').value = role.name;
+    document.getElementById('edit-role-color').value = role.color || '#99aab5';
+    const pList = document.getElementById('permissions-list');
+    pList.innerHTML = '';
+    PERMISSIONS.forEach(p => {
+        const has = (BigInt(role.permissions) & BigInt(p.flag)) !== 0n;
+        pList.insertAdjacentHTML('beforeend', `<div class="permission-item"><div class="permission-info"><span class="permission-name">${p.name}</span><span class="permission-desc">${p.desc}</span></div><input type="checkbox" class="p-checkbox" data-flag="${p.flag}" ${has ? 'checked' : ''} /></div>`);
+    });
+}
+
+function createNewRole() {
+    const serverId = document.getElementById('ss-server-id').value;
+    if (!serverId) {
+        console.error("No server ID found for role creation.");
+        return;
+    }
+    const fd = new FormData();
+    fd.append('serverId', serverId);
+    fd.append('name', "new role");
+    
+    fetch('/Server/CreateRole', { method: 'POST', body: fd })
+        .then(r => {
+            if (!r.ok) throw new Error("Failed to create role");
+            return r.json();
+        })
+        .then(role => {
+            loadRoles();
+            setTimeout(() => {
+                editRole(role.id);
+            }, 200);
+        })
+        .catch(err => {
+            console.error("Error creating role:", err);
+            alert("Failed to create role. Please try again.");
+        });
+}
+
+function deleteCurrentRole() {
+    const roleId = document.getElementById('edit-role-id').value;
+    const serverId = document.getElementById('ss-server-id').value;
+    if (confirm("Delete this role?")) fetch(`/Server/DeleteRole?serverId=${serverId}&roleId=${roleId}`, { method: 'POST' }).then(r => { if (r.ok) loadRoles(); });
+}
+
+function loadMembers() {
+    const serverId = document.getElementById('ss-server-id').value;
+    fetch('/Server/GetMembers?serverId=' + serverId)
+        .then(r => r.json())
+        .then(members => {
+            const container = document.getElementById('members-list-container');
+            container.innerHTML = '';
+            members.forEach(m => {
+                const div = document.createElement('div');
+                div.className = 'ss-member-item';
+                div.innerHTML = `
+                    <div class="ss-member-info">
+                        <div class="ss-member-avatar" style="background-color: ${getUserColor(m.displayName)}">
+                            ${m.hasPfp ? `<img src="/Server/GetProfilePicture?userId=${m.userId}" />` : m.displayName[0]}
+                        </div>
+                        <div class="ss-member-names">
+                            <span class="ss-member-display">${escapeHtml(m.displayName)}</span>
+                            <span class="ss-member-user">${escapeHtml(m.userName)}</span>
+                        </div>
+                    </div>
+                    <div class="ss-member-roles">
+                        ${m.roles.map(r => `<span class="ss-role-tag" style="border-color: ${r.color}">${escapeHtml(r.name)}</span>`).join('')}
+                        <button class="ss-add-role-btn" onclick="openMemberRolePicker('${m.userId}', this)">+</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        });
+}
+
+function openMemberRolePicker(userId, btn) {
+    let picker = document.getElementById('member-role-picker');
+    if (picker) picker.remove();
+    picker = document.createElement('div');
+    picker.id = 'member-role-picker';
+    picker.className = 'role-picker-popover';
+    
+    serverRoles.forEach(role => {
+        const item = document.createElement('div');
+        item.className = 'role-picker-item';
+        item.innerHTML = `<div class="role-color-dot" style="background-color: ${role.color}"></div><span>${escapeHtml(role.name)}</span>`;
+        item.onclick = () => addRoleToMember(userId, role.id);
+        picker.appendChild(item);
+    });
+    document.body.appendChild(picker);
+    const r = btn.getBoundingClientRect();
+    picker.style.left = (r.left + window.scrollX - 150) + 'px';
+    picker.style.top = (r.top + window.scrollY) + 'px';
+}
+
+function addRoleToMember(userId, roleId) {
+    const serverId = document.getElementById('ss-server-id').value;
+    // For simplicity, we just toggle or add. Real implementation would be more complex.
+    // Fetch current roles first would be better, but let's just use a comma-separated list.
+    fetch('/Server/GetMembers?serverId=' + serverId).then(r => r.json()).then(members => {
+        const member = members.find(m => m.userId === userId);
+        let roleIds = member.roles.map(r => r.id);
+        if (roleIds.includes(roleId)) roleIds = roleIds.filter(id => id !== roleId);
+        else roleIds.push(roleId);
+        
+        const fd = new FormData();
+        fd.append('serverId', serverId);
+        fd.append('userId', userId);
+        fd.append('roleIds', roleIds.join(','));
+        fetch('/Server/UpdateMemberRoles', { method: 'POST', body: fd }).then(r => {
+            if (r.ok) { loadMembers(); document.getElementById('member-role-picker')?.remove(); }
+        });
+    });
+}
+
+function deleteServer() {
+    const serverId = document.getElementById('ss-server-id').value;
+    if (confirm("DANGER: Delete this server?")) {
+        fetch('/Server/DeleteServer?serverId=' + serverId, { method: 'POST' }).then(r => {
+            if (r.ok) window.location.href = '/';
+        });
+    }
+}
+
+function openInviteModal() {
+    const modal = document.getElementById('invite-modal');
+    const serverId = document.getElementById('current-server-id-val')?.value;
+    if (modal && serverId) {
+        document.getElementById('invite-link-input').value = window.location.origin + '/Server/Join/' + serverId;
+        modal.classList.add('open');
+    } else {
+        alert('Please select a server first.');
+    }
+    document.getElementById('server-dropdown-menu')?.classList.remove('open');
+}
+
+function closeInviteModal() { document.getElementById('invite-modal')?.classList.remove('open'); }
+function copyInviteLink() { const input = document.getElementById('invite-link-input'); input.select(); document.execCommand('copy'); alert('Copied!'); }
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('edit-role-form')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const fd = new FormData(this);
+        fd.append('serverId', document.getElementById('ss-server-id').value);
+        let permissions = 0n;
+        document.querySelectorAll('.p-checkbox:checked').forEach(cb => permissions |= BigInt(cb.dataset.flag));
+        fd.set('permissions', permissions.toString());
+        fetch('/Server/UpdateRole', { method: 'POST', body: fd }).then(r => { if (r.ok) { loadRoles(); alert('Updated!'); } });
+    });
+
+    document.getElementById('update-server-form')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        fetch('/Server/UpdateServer', { method: 'POST', body: new FormData(this) }).then(r => { if (r.ok) location.reload(); });
+    });
+
+    document.getElementById('ss-icon-input')?.addEventListener('change', (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        const preview = document.getElementById('ss-icon-preview');
+        preview.src = URL.createObjectURL(file); preview.hidden = false;
+        document.getElementById('ss-icon-placeholder').style.display = 'none';
+    });
+});
+

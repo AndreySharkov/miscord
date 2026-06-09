@@ -13,6 +13,7 @@ using Miscord.Client.Models;
 using Miscord.Data.Models;
 using System.Security.Claims;
 using Microsoft.Identity.Client;
+using Miscord.Client.Services;
 
 
 namespace Miscord.Client.Controllers
@@ -21,11 +22,13 @@ namespace Miscord.Client.Controllers
     {
         private readonly AppDbContext _context;
         private readonly IHubContext<ChatHub> _chatHubContext;
+        private readonly PermissionHelper _permissionHelper;
 
-        public ServerController(AppDbContext context, IHubContext<ChatHub> chatHubContext)
+        public ServerController(AppDbContext context, IHubContext<ChatHub> chatHubContext, PermissionHelper permissionHelper)
         {
             _context = context;
             _chatHubContext = chatHubContext;
+            _permissionHelper = permissionHelper;
         }
 
         [HttpGet]
@@ -38,40 +41,68 @@ namespace Miscord.Client.Controllers
         [HttpGet]
         public async Task<IActionResult> Details(int id)
         {
-            var server = await _context.Servers.Include(s => s.Channels).FirstOrDefaultAsync(s => s.Id == id);
+            var server = await _context.Servers
+                .Include(s => s.ChannelCategories.OrderBy(cc => cc.Position))
+                    .ThenInclude(cc => cc.Channels.OrderBy(c => c.Position))
+                .Include(s => s.Channels.Where(c => c.ChannelCategoryId == null).OrderBy(c => c.Position))
+                .FirstOrDefaultAsync(s => s.Id == id);
+
             if (server == null)
             {
                 return NotFound();
             }
+
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             ViewData["ServerName"] = server.Name;
             ViewData["Channels"] = server.Channels;
+            ViewData["Categories"] = server.ChannelCategories;
+            ViewData["Server"] = server;
+            ViewData["CurrentUserId"] = userId;
+
+            var hasManageChannels = await _permissionHelper.HasPermission(userId, id, ServerPermissions.ManageChannels);
+            var hasManageServer = await _permissionHelper.HasPermission(userId, id, ServerPermissions.ManageServer);
+            var hasManageRoles = await _permissionHelper.HasPermission(userId, id, ServerPermissions.ManageRoles);
+            ViewData["IsAdmin"] = hasManageChannels || hasManageServer || hasManageRoles;
+            
             return View(server);
         }
 
         [HttpGet]
         public async Task<IActionResult> GetChannels(int id)
         {
-            var channels = await _context.Servers.Include(s => s.Channels).FirstOrDefaultAsync(s => s.Id == id);
-            if (channels == null)
+            var server = await _context.Servers
+                .Include(s => s.ChannelCategories.OrderBy(cc => cc.Position))
+                    .ThenInclude(cc => cc.Channels.OrderBy(c => c.Position))
+                .Include(s => s.Channels.Where(c => c.ChannelCategoryId == null).OrderBy(c => c.Position))
+                .FirstOrDefaultAsync(s => s.Id == id);
+
+            if (server == null)
             {
                 return NotFound();
             }            
             
-            return PartialView("_ChannelList", channels.Channels);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            ViewData["CurrentUserId"] = userId;
+            
+            // Comprehensive admin check
+            var hasManageChannels = await _permissionHelper.HasPermission(userId, id, ServerPermissions.ManageChannels);
+            var hasManageServer = await _permissionHelper.HasPermission(userId, id, ServerPermissions.ManageServer);
+            var hasManageRoles = await _permissionHelper.HasPermission(userId, id, ServerPermissions.ManageRoles);
+            ViewData["IsAdmin"] = hasManageChannels || hasManageServer || hasManageRoles;
+
+            return PartialView("_ChannelList", server);
         }
 
         [HttpGet]
         public async Task<IActionResult> GetChat(int channelId)
         {
-            // Project to DTO — never loads AttachmentData (the binary blob that caused the slowness).
-            // AsNoTracking skips change-tracker overhead since this is a read-only endpoint.
-            var channelName = await _context.Channels
+            var channel = await _context.Channels
                 .AsNoTracking()
                 .Where(c => c.Id == channelId)
-                .Select(c => c.Name)
+                .Select(c => new { c.Name, c.ServerId })
                 .FirstOrDefaultAsync();
 
-            if (channelName == null)
+            if (channel == null)
             {
                 return NotFound();
             }
@@ -89,12 +120,9 @@ namespace Miscord.Client.Controllers
                     AuthorId                   = m.AuthorId,
                     AuthorDisplayName          = m.Author.Nickname ?? m.Author.UserName,
                     AuthorHasProfilePicture    = m.Author.ProfilePictureData != null,
-
-                    // Only metadata — AttachmentData byte[] is never fetched
                     HasAttachment              = m.AttachmentData != null,
                     AttachmentFileName         = m.AttachmentFileName,
                     AttachmentContentType      = m.AttachmentContentType,
-
                     ReplyToMessageId           = m.ReplyToMessageId,
                     ParentContent              = m.ParentMessage != null ? m.ParentMessage.Content : null,
                     ParentAuthorId             = m.ParentMessage != null ? m.ParentMessage.AuthorId : null,
@@ -105,13 +133,12 @@ namespace Miscord.Client.Controllers
                 })
                 .ToListAsync();
 
-            // Chronological order for the UI
             messages.Reverse();
 
             var vm = new ChatChannelViewModel
             {
                 Id       = channelId,
-                Name     = channelName,
+                Name     = channel.Name,
                 Messages = messages,
             };
 
@@ -130,6 +157,12 @@ namespace Miscord.Client.Controllers
             {
                 return BadRequest("Message content or attachment is required.");
             }
+
+            var channel = await _context.Channels.FindAsync(channelId);
+            if (channel == null) return NotFound();
+            
+            if (!await _permissionHelper.HasPermission(userId, channel.ServerId, ServerPermissions.SendMessages))
+                return Unauthorized("You do not have permission to send messages in this server.");
 
             if (content != null && content.Length > 6000)
             {
@@ -179,7 +212,6 @@ namespace Miscord.Client.Controllers
             var displayName = user?.Nickname ?? user?.UserName ?? "Unknown";
             var pfpBase64 = user?.ProfilePictureData != null ? Convert.ToBase64String(user.ProfilePictureData) : null;
 
-            // Broadcast to SignalR group
             await _chatHubContext.Clients.Group(channelId.ToString()).SendAsync(
                 "ReceiveMessage",
                 displayName,
@@ -210,7 +242,6 @@ namespace Miscord.Client.Controllers
                 return NotFound();
             }
 
-            // Attachments are immutable — cache them in the browser for 7 days
             Response.Headers["Cache-Control"] = "public, max-age=604800, immutable";
             return File(message.AttachmentData, message.AttachmentContentType ?? "application/octet-stream", message.AttachmentFileName);
         }
@@ -228,7 +259,6 @@ namespace Miscord.Client.Controllers
                 return NotFound();
             }
 
-            // Profile pictures rarely change — cache for 1 hour
             Response.Headers["Cache-Control"] = "public, max-age=3600";
             return File(user.ProfilePictureData, "image/png");
         }
@@ -239,29 +269,20 @@ namespace Miscord.Client.Controllers
             [FromForm] string emoji)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (userId == null)
-            {
-                return Unauthorized();
-            }
+            if (userId == null) return Unauthorized();
 
             var existing = await _context.Reactions.FirstOrDefaultAsync(r => r.MessageId == messageId && r.UserId == userId && r.Emoji == emoji);
             bool hasReacted;
-            if (existing != null)            {
+            if (existing != null) {
                 _context.Reactions.Remove(existing);
                 hasReacted = false;
-            }
-            else
-            {
-                var reaction = new Reaction
-                {
-                    MessageId = messageId,
-                    UserId = userId,
-                    Emoji = emoji
-                };
+            } else {
+                var reaction = new Reaction { MessageId = messageId, UserId = userId, Emoji = emoji };
                 _context.Reactions.Add(reaction);
                 hasReacted = true;
             }
             await _context.SaveChangesAsync();
+            
             var count = await _context.Reactions.CountAsync(r => r.MessageId == messageId && r.Emoji == emoji);
             var message = await _context.Messages.FindAsync(messageId);
             if (message != null)
@@ -275,11 +296,10 @@ namespace Miscord.Client.Controllers
                 );
             }
 
-
-
             return Ok();
-            
         }
+
+        [HttpPost]
         public async Task<IActionResult> CreateServer(
             [FromForm] string ServerName,
             [FromForm] string? serverType,
@@ -287,21 +307,12 @@ namespace Miscord.Client.Controllers
         )
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (userId == null)
-            {
-                return Unauthorized();
-            }
+            if (userId == null) return Unauthorized();
 
-
-            var server = new Server
-            {
-                Name = ServerName,
-                OwnerId = userId
-            };
+            var server = new Server { Name = ServerName, OwnerId = userId };
             if (serverIcon != null && serverIcon.Length > 0)
             {
-                using (var ms = new MemoryStream())
-                {
+                using (var ms = new MemoryStream()) {
                     await serverIcon.CopyToAsync(ms);
                     server.IconData = ms.ToArray();
                 }
@@ -309,83 +320,247 @@ namespace Miscord.Client.Controllers
             _context.Servers.Add(server);
             await _context.SaveChangesAsync();
 
-            var channel = new Channel
-            {
-                Name = "general",
-                ServerId = server.Id
-            };
-            _context.Channels.Add(channel);
-            var channel2 = new Channel
-            {
-                Name = "announcements",
-                ServerId = server.Id
-            };
-            _context.Channels.Add(channel2);
-            switch(serverType)
-            {
-                case "gaming":
-                    var channel3 = new Channel
-                    {
-                        Name = "mladost-1",
-                        ServerId = server.Id
-                    };
-                    _context.Channels.Add(channel3);           
-                    break;
-                case "school":
-                    var channel4 = new Channel
-                    {
-                        Name = "homework-help",
-                        ServerId = server.Id
-                    };
-                    _context.Channels.Add(channel4);
-                    
-                    break;
-                case "friends":
-                        var channel5 = new Channel
-                        {
-                            Name = "memes",
-                            ServerId = server.Id
-                        };
-                        _context.Channels.Add(channel5);
-                    
-                    break;
-                case "art":
-                    var channel6 = new Channel
-                    {
-                        Name = "art-showcase",
-                        ServerId = server.Id
-                    };
-                    _context.Channels.Add(channel6);
-                    
-                    break;
-                case "own":                    
-                    break;
-                default:
-                    
-                    break;
-            }
+            // Default Channels
+            _context.Channels.Add(new Channel { Name = "general", ServerId = server.Id });
+            _context.Channels.Add(new Channel { Name = "announcements", ServerId = server.Id });
             
+            if (serverType == "gaming") _context.Channels.Add(new Channel { Name = "lobby", ServerId = server.Id });
+            else if (serverType == "school") _context.Channels.Add(new Channel { Name = "homework-help", ServerId = server.Id });
             
+            // Add creator as member
+            var member = new ServerMember { ServerId = server.Id, UserId = userId, JoinedAt = DateTime.UtcNow };
+            _context.ServerMembers.Add(member);
+
+            // Add Default Roles
+            var adminRole = new ServerRole
+            {
+                Name = "Admin",
+                ServerId = server.Id,
+                Position = 0,
+                Color = "#e74c3c", // Red-ish
+                Permissions = (long)ServerPermissions.Administrator
+            };
+            var memberRole = new ServerRole
+            {
+                Name = "Member",
+                ServerId = server.Id,
+                Position = 1,
+                Color = "#9b59b6", // Purple-ish
+                Permissions = (long)(ServerPermissions.SendMessages | ServerPermissions.AddReactions | ServerPermissions.ReadMessageHistory | ServerPermissions.CreateInvite | ServerPermissions.ChangeNickname)
+            };
+
+            _context.ServerRoles.Add(adminRole);
+            _context.ServerRoles.Add(memberRole);
+            await _context.SaveChangesAsync();
+
+            // Assign Admin role to creator
+            _context.ServerMemberRoles.Add(new ServerMemberRole { ServerMemberId = member.Id, ServerRoleId = adminRole.Id });
+
             await _context.SaveChangesAsync();
 
             return Ok(new { serverId = server.Id });
         }
+
+        [HttpPost]
+        public async Task<IActionResult> UpdateServer(
+            [FromForm] int serverId,
+            [FromForm] string serverName,
+            [FromForm] IFormFile? serverIcon
+        )
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var server = await _context.Servers.FindAsync(serverId);
+            if (server == null) return NotFound();
+            
+            if (!await _permissionHelper.HasPermission(userId, serverId, ServerPermissions.ManageServer))
+                return Unauthorized();
+
+            server.Name = serverName;
+            if (serverIcon != null && serverIcon.Length > 0)
+            {
+                using (var ms = new MemoryStream()) {
+                    await serverIcon.CopyToAsync(ms);
+                    server.IconData = ms.ToArray();
+                }
+            }
+            await _context.SaveChangesAsync();
+
+            return Ok();
+        }
+
         [HttpGet]
         public async Task<IActionResult> GetServerIcon(int serverId)
         {
-                var server = await _context.Servers
-                    .AsNoTracking()
-                    .Select(s => new { s.Id, s.IconData })
-                    .FirstOrDefaultAsync(s => s.Id == serverId);
-
-                if (server == null || server.IconData == null)
-                {
-                    return NotFound();
-                }
-
-                Response.Headers["Cache-Control"] = "public, max-age=3600";
+            var server = await _context.Servers.AsNoTracking().Select(s => new { s.Id, s.IconData }).FirstOrDefaultAsync(s => s.Id == serverId);
+            if (server == null || server.IconData == null) return NotFound();
+            Response.Headers["Cache-Control"] = "public, max-age=3600";
             return File(server.IconData, "image/png");
         }
-            
+
+        [HttpPost]
+        public async Task<IActionResult> CreateCategory([FromForm] int serverId, [FromForm] string name)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!await _permissionHelper.HasPermission(userId, serverId, ServerPermissions.ManageChannels)) return Unauthorized();
+
+            var category = new ChannelCategory { ServerId = serverId, Name = name, Position = await _context.ChannelCategories.CountAsync(cc => cc.ServerId == serverId) };
+            _context.ChannelCategories.Add(category);
+            await _context.SaveChangesAsync();
+            return Ok();
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CreateChannel([FromForm] int serverId, [FromForm] string name, [FromForm] int? categoryId)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!await _permissionHelper.HasPermission(userId, serverId, ServerPermissions.ManageChannels)) return Unauthorized();
+
+            var channel = new Channel { ServerId = serverId, Name = name, ChannelCategoryId = categoryId, Position = await _context.Channels.CountAsync(c => c.ServerId == serverId && c.ChannelCategoryId == categoryId) };
+            _context.Channels.Add(channel);
+            await _context.SaveChangesAsync();
+            return Ok();
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetRoles(int serverId)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!await _permissionHelper.HasPermission(userId, serverId, ServerPermissions.ManageRoles)) return Unauthorized();
+
+            var roles = await _context.ServerRoles.Where(r => r.ServerId == serverId).OrderBy(r => r.Position).ToListAsync();
+            return Ok(roles);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CreateRole([FromForm] int serverId, [FromForm] string name)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!await _permissionHelper.HasPermission(userId, serverId, ServerPermissions.ManageRoles)) return Unauthorized();
+
+            var role = new ServerRole {
+                ServerId = serverId,
+                Name = name,
+                Position = await _context.ServerRoles.CountAsync(r => r.ServerId == serverId),
+                Permissions = (long)(ServerPermissions.SendMessages | ServerPermissions.AddReactions | ServerPermissions.ReadMessageHistory)
+            };
+            _context.ServerRoles.Add(role);
+            await _context.SaveChangesAsync();
+            return Ok(role);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> UpdateRole([FromForm] int serverId, [FromForm] int roleId, [FromForm] string name, [FromForm] string? color, [FromForm] long permissions)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!await _permissionHelper.HasPermission(userId, serverId, ServerPermissions.ManageRoles)) return Unauthorized();
+
+            var role = await _context.ServerRoles.FindAsync(roleId);
+            if (role == null || role.ServerId != serverId) return NotFound();
+
+            role.Name = name;
+            role.Color = color;
+            role.Permissions = permissions;
+            await _context.SaveChangesAsync();
+            return Ok();
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> DeleteRole(int serverId, int roleId)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!await _permissionHelper.HasPermission(userId, serverId, ServerPermissions.ManageRoles)) return Unauthorized();
+
+            var role = await _context.ServerRoles.FindAsync(roleId);
+            if (role == null || role.ServerId != serverId) return NotFound();
+
+            _context.ServerRoles.Remove(role);
+            await _context.SaveChangesAsync();
+            return Ok();
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetMembers(int serverId)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!await _permissionHelper.HasPermission(userId, serverId, ServerPermissions.ManageRoles))
+                return Unauthorized();
+
+            var members = await _context.ServerMembers
+                .Include(sm => sm.User)
+                .Include(sm => sm.MemberRoles)
+                    .ThenInclude(mr => mr.ServerRole)
+                .Where(sm => sm.ServerId == serverId)
+                .Select(sm => new {
+                    sm.UserId,
+                    DisplayName = sm.Nickname ?? sm.User.Nickname ?? sm.User.UserName,
+                    sm.User.UserName,
+                    HasPfp = sm.User.ProfilePictureData != null,
+                    Roles = sm.MemberRoles.Select(mr => new { mr.ServerRole.Id, mr.ServerRole.Name, mr.ServerRole.Color })
+                })
+                .ToListAsync();
+
+            return Ok(members);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> UpdateMemberRoles([FromForm] int serverId, [FromForm] string userId, [FromForm] string roleIds)
+        {
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!await _permissionHelper.HasPermission(currentUserId, serverId, ServerPermissions.ManageRoles))
+                return Unauthorized();
+
+            var member = await _context.ServerMembers
+                .Include(sm => sm.MemberRoles)
+                .FirstOrDefaultAsync(sm => sm.ServerId == serverId && sm.UserId == userId);
+
+            if (member == null) return NotFound();
+
+            _context.ServerMemberRoles.RemoveRange(member.MemberRoles);
+
+            if (!string.IsNullOrEmpty(roleIds))
+            {
+                var ids = roleIds.Split(',').Select(int.Parse).ToList();
+                foreach (var rid in ids)
+                {
+                    _context.ServerMemberRoles.Add(new ServerMemberRole { ServerMemberId = member.Id, ServerRoleId = rid });
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok();
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> DeleteServer(int serverId)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var server = await _context.Servers.FindAsync(serverId);
+            if (server == null) return NotFound();
+
+            if (server.OwnerId != userId) return Unauthorized("Only the owner can delete the server.");
+
+            server.IsDeleted = true;
+            await _context.SaveChangesAsync();
+            return Ok();
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Join(int id)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null) return RedirectToAction("Login", "Account", new { returnUrl = Url.Action("Join", "Server", new { id = id }) });
+
+            var server = await _context.Servers.FindAsync(id);
+            if (server == null) return NotFound();
+
+            var existingMember = await _context.ServerMembers.FirstOrDefaultAsync(sm => sm.ServerId == id && sm.UserId == userId);
+            if (existingMember == null)
+            {
+                _context.ServerMembers.Add(new ServerMember { ServerId = id, UserId = userId, JoinedAt = DateTime.UtcNow });
+                await _context.SaveChangesAsync();
+            }
+
+            return RedirectToAction("Details", new { id = id });
+        }
     }
 }

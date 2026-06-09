@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Miscord.Data;
 using Miscord.Data.Models;
+using Miscord.Client.Services;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,6 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 builder.Services.AddSignalR();
+builder.Services.AddScoped<PermissionHelper>();
 
 // 1. Get the connection string from appsettings.json
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 

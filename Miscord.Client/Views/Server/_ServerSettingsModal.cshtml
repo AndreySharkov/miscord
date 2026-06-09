@@ -1,0 +1,420 @@
+<div id="server-settings-modal" class="cs-backdrop">
+    <div class="cs-modal cs-modal--large">
+        <button class="cs-close-btn" onclick="closeServerSettingsModal()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+
+        <div class="ss-container">
+            <!-- Sidebar Tabs -->
+            <div class="ss-sidebar">
+                <div class="ss-tab active" onclick="switchSSTab('overview', this)">Overview</div>
+                <div class="ss-tab" onclick="switchSSTab('roles', this)">Roles</div>
+                <div class="ss-tab" onclick="switchSSTab('members', this)">Members</div>
+                <div class="ss-divider"></div>
+                <div class="ss-tab ss-tab--danger" onclick="deleteServer()">Delete Server</div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="ss-content">
+                <!-- Overview Tab -->
+                <div id="ss-tab-overview" class="ss-tab-pane active">
+                    <div class="cs-header">
+                        <h2 class="cs-title">Server Overview</h2>
+                        <p class="cs-subtitle">Update your server's name and icon.</p>
+                    </div>
+
+                    <form id="update-server-form" class="cs-form">
+                        <input type="hidden" id="ss-server-id" name="serverId" />
+                        
+                        <div class="cs-icon-upload-wrap">
+                            <label for="ss-icon-input" class="cs-icon-upload">
+                                <img id="ss-icon-preview" class="cs-icon-preview" hidden />
+                                <div id="ss-icon-placeholder" class="cs-icon-placeholder">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                    <span>Upload</span>
+                                </div>
+                            </label>
+                            <input type="file" id="ss-icon-input" name="serverIcon" class="cs-icon-file-input" accept="image/*" />
+                        </div>
+
+                        <div class="cs-field">
+                            <label class="cs-label">Server Name <span class="cs-required">*</span></label>
+                            <input type="text" id="ss-server-name" name="serverName" class="cs-input" required />
+                        </div>
+
+                        <div class="cs-actions">
+                            <button type="submit" class="cs-btn cs-btn--primary">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Roles Tab -->
+                <div id="ss-tab-roles" class="ss-tab-pane">
+                    <div class="cs-header ss-roles-header">
+                        <div>
+                            <h2 class="cs-title">Roles</h2>
+                            <p class="cs-subtitle">Use roles to group your server members and assign permissions.</p>
+                        </div>
+                        <button class="cs-btn cs-btn--primary cs-btn--small" onclick="createNewRole()">Create Role</button>
+                    </div>
+
+                    <div class="ss-roles-layout">
+                        <div class="ss-roles-list" id="roles-list-container">
+                            <!-- Roles will be loaded here -->
+                        </div>
+                        <div class="ss-role-edit" id="role-edit-container" style="display: none;">
+                            <form id="edit-role-form" class="cs-form">
+                                <input type="hidden" id="edit-role-id" name="roleId" />
+                                <div class="cs-field">
+                                    <label class="cs-label">Role Name</label>
+                                    <input type="text" id="edit-role-name" name="name" class="cs-input" required />
+                                </div>
+                                <div class="cs-field">
+                                    <label class="cs-label">Role Color</label>
+                                    <input type="color" id="edit-role-color" name="color" class="cs-input cs-input--color" />
+                                </div>
+                                <div class="cs-field">
+                                    <label class="cs-label">Permissions</label>
+                                    <div class="permissions-list" id="permissions-list">
+                                        <!-- Permissions checkboxes will be here -->
+                                    </div>
+                                </div>
+                                <div class="cs-actions">
+                                    <button type="button" class="cs-btn cs-btn--danger cs-btn--small" onclick="deleteCurrentRole()">Delete Role</button>
+                                    <button type="submit" class="cs-btn cs-btn--primary">Save Role</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Members Tab -->
+                <div id="ss-tab-members" class="ss-tab-pane">
+                    <div class="cs-header">
+                        <h2 class="cs-title">Server Members</h2>
+                        <p class="cs-subtitle">Manage the members of your server and their roles.</p>
+                    </div>
+                    <div class="ss-members-list" id="members-list-container">
+                        <!-- Members will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="invite-modal" class="cs-backdrop">
+    <div class="cs-modal">
+        <button class="cs-close-btn" onclick="closeInviteModal()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+
+        <div class="cs-header">
+            <h2 class="cs-title">Invite friends to this server</h2>
+            <p class="cs-subtitle">Share this link with others to grant them access.</p>
+        </div>
+
+        <div class="cs-form">
+            <div class="cs-field">
+                <label class="cs-label">Invite Link</label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="invite-link-input" class="cs-input" readonly value="" />
+                    <button type="button" class="cs-btn cs-btn--primary" onclick="copyInviteLink()">Copy</button>
+                </div>
+                <p class="cs-help-text">Your invite link never expires.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .cs-modal--large {
+        max-width: 800px;
+        width: 90vw;
+        height: 80vh;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .ss-container {
+        display: flex;
+        height: 100%;
+        overflow: hidden;
+    }
+
+    .ss-sidebar {
+        width: 200px;
+        background: #2b2d31;
+        padding: 60px 6px 20px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .ss-tab {
+        padding: 6px 10px;
+        border-radius: 4px;
+        color: #949ba4;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s, color 0.2s;
+    }
+
+    .ss-tab:hover {
+        background: rgba(78, 80, 88, 0.3);
+        color: #dbdee1;
+    }
+
+    .ss-tab.active {
+        background: rgba(78, 80, 88, 0.6);
+        color: #fff;
+    }
+
+    .ss-tab--danger:hover {
+        background: #da373c;
+        color: #fff;
+    }
+
+    .ss-divider {
+        margin: 8px 10px;
+        height: 1px;
+        background: rgba(78, 80, 88, 0.48);
+    }
+
+    .ss-content {
+        flex: 1;
+        background: #313338;
+        padding: 60px 40px;
+        overflow-y: auto;
+    }
+
+    .ss-tab-pane {
+        display: none;
+    }
+
+    .ss-tab-pane.active {
+        display: block;
+    }
+
+    .ss-roles-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 20px;
+    }
+
+    .ss-roles-layout {
+        display: flex;
+        gap: 20px;
+    }
+
+    .ss-roles-list {
+        width: 200px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .role-item {
+        padding: 8px 10px;
+        border-radius: 4px;
+        color: #949ba4;
+        font-size: 14px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .role-item:hover {
+        background: rgba(78, 80, 88, 0.3);
+    }
+
+    .role-item.active {
+        background: rgba(78, 80, 88, 0.6);
+        color: #fff;
+    }
+
+    .role-color-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #99aab5;
+    }
+
+    .ss-role-edit {
+        flex: 1;
+        padding-left: 20px;
+        border-left: 1px solid rgba(78, 80, 88, 0.48);
+    }
+
+    .permissions-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 10px;
+        max-height: 300px;
+        overflow-y: auto;
+        padding-right: 10px;
+    }
+
+    .permission-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(78, 80, 88, 0.2);
+    }
+
+    .permission-info {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .permission-name {
+        color: #dbdee1;
+        font-size: 14px;
+        font-weight: 500;
+    }
+
+    .permission-desc {
+        color: #949ba4;
+        font-size: 12px;
+    }
+
+    .cs-input--color {
+        height: 40px;
+        padding: 4px;
+        width: 100px;
+    }
+    
+    .cs-help-text {
+        margin-top: 8px;
+        font-size: 12px;
+        color: #949ba4;
+    }
+
+    /* Members Tab Styles */
+    .ss-members-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 20px;
+    }
+
+    .ss-member-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px;
+        background: rgba(43, 45, 49, 0.3);
+        border-radius: 4px;
+    }
+
+    .ss-member-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .ss-member-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-weight: 600;
+        overflow: hidden;
+    }
+
+    .ss-member-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .ss-member-names {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .ss-member-display {
+        color: #dbdee1;
+        font-size: 14px;
+        font-weight: 500;
+    }
+
+    .ss-member-user {
+        color: #949ba4;
+        font-size: 12px;
+    }
+
+    .ss-member-roles {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-wrap: wrap;
+        max-width: 300px;
+    }
+
+    .ss-role-tag {
+        padding: 2px 8px;
+        background: rgba(43, 45, 49, 0.6);
+        border: 1px solid #99aab5;
+        border-radius: 10px;
+        color: #dbdee1;
+        font-size: 12px;
+    }
+
+    .ss-add-role-btn {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border: none;
+        background: rgba(78, 80, 88, 0.6);
+        color: #dbdee1;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .ss-add-role-btn:hover {
+        background: rgba(78, 80, 88, 1);
+    }
+
+    /* Role Picker Popover */
+    .role-picker-popover {
+        position: absolute;
+        background: #111214;
+        border-radius: 4px;
+        padding: 8px;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.24);
+        width: 180px;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .role-picker-item {
+        padding: 6px 8px;
+        border-radius: 2px;
+        color: #b5bac1;
+        font-size: 14px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .role-picker-item:hover {
+        background: rgba(78, 80, 88, 0.3);
+        color: #dbdee1;
+    }
+</style>
