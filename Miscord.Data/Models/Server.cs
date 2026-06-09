@@ -22,6 +22,7 @@ namespace Miscord.Data.Models
         public byte[]? IconData { get; set; }
 
         public ICollection<Channel> Channels { get; set; } = new List<Channel>();
+        public ICollection<ChannelCategory> ChannelCategories { get; set; } = new List<ChannelCategory>();
 
         public bool IsDeleted { get; set; } = false;
 

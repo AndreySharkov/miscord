@@ -20,6 +20,7 @@ namespace Miscord.Data
         public DbSet<Channel> Channels { get; set; }
         public DbSet<Message> Messages { get; set; }
         public DbSet<Reaction> Reactions { get; set; }
+        public DbSet<ChannelCategory> ChannelCategories { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -53,6 +54,11 @@ namespace Miscord.Data
                 .WithMany() // Add a collection property like r.User.Reactions here if you ever define one
                 .HasForeignKey(r => r.UserId)
                 .OnDelete(DeleteBehavior.NoAction);
+            builder.Entity<ChannelCategory>()
+                .HasOne(cc => cc.Server)
+                .WithMany(s => s.ChannelCategories)
+                .HasForeignKey(cc => cc.ServerId)
+                .OnDelete(DeleteBehavior.Cascade);
                 
             builder.Entity<Message>()
                 .HasQueryFilter(m => !m.IsDeleted);
