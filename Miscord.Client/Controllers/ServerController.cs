@@ -544,23 +544,73 @@ namespace Miscord.Client.Controllers
             return Ok();
         }
 
-        [HttpGet]
-        public async Task<IActionResult> Join(int id)
+        [HttpPost]
+        public async Task<IActionResult> CreateInvite([FromForm] int serverId, [FromForm] int? expirationDays, [FromForm] int? maxUses)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (userId == null) return RedirectToAction("Login", "Account", new { returnUrl = Url.Action("Join", "Server", new { id = id }) });
+            if (!await _permissionHelper.HasPermission(userId, serverId, ServerPermissions.CreateInvite))
+                return Unauthorized();
 
-            var server = await _context.Servers.FindAsync(id);
+            var token = Guid.NewGuid().ToString("N").Substring(0, 10);
+            var invite = new Invite
+            {
+                Token = token,
+                ServerId = serverId,
+                CreatorId = userId,
+                ExpiresAt = expirationDays.HasValue ? DateTime.UtcNow.AddDays(expirationDays.Value) : null,
+                MaxUses = maxUses
+            };
+
+            _context.Invites.Add(invite);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { token = invite.Token });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> LeaveServer(int serverId)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var server = await _context.Servers.FindAsync(serverId);
             if (server == null) return NotFound();
 
-            var existingMember = await _context.ServerMembers.FirstOrDefaultAsync(sm => sm.ServerId == id && sm.UserId == userId);
-            if (existingMember == null)
+            if (server.OwnerId == userId)
+                return BadRequest("Owners cannot leave their own server. Delete it or transfer ownership instead.");
+
+            var member = await _context.ServerMembers.FirstOrDefaultAsync(sm => sm.ServerId == serverId && sm.UserId == userId);
+            if (member != null)
             {
-                _context.ServerMembers.Add(new ServerMember { ServerId = id, UserId = userId, JoinedAt = DateTime.UtcNow });
+                _context.ServerMembers.Remove(member);
                 await _context.SaveChangesAsync();
             }
 
-            return RedirectToAction("Details", new { id = id });
+            return Ok();
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Join(string id)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null)
+            {
+                return RedirectToAction("Login", "Account", new { returnUrl = Url.Action("Join", "Server", new { id = id }) });
+            }
+
+            var invite = await _context.Invites.FirstOrDefaultAsync(i => i.Token == id);
+            if (invite == null || invite.IsExpired)
+            {
+                return NotFound("This invite link is invalid or has expired.");
+            }
+
+            var existingMember = await _context.ServerMembers.FirstOrDefaultAsync(sm => sm.ServerId == invite.ServerId && sm.UserId == userId);
+            if (existingMember == null)
+            {
+                _context.ServerMembers.Add(new ServerMember { ServerId = invite.ServerId, UserId = userId, JoinedAt = DateTime.UtcNow });
+                invite.Uses++;
+                await _context.SaveChangesAsync();
+            }
+
+            return RedirectToAction("Details", new { id = invite.ServerId });
         }
     }
 }

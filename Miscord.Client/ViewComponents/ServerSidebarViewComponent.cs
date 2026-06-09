@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Miscord.Data;
 using Miscord.Data.Models;
+using System.Security.Claims;
 
 namespace Miscord.Client.ViewComponents
 {
@@ -17,7 +18,17 @@ namespace Miscord.Client.ViewComponents
         }
         public async Task<IViewComponentResult> InvokeAsync()
         {
-            var servers = await _context.Servers.ToListAsync();
+            var userId = UserClaimsPrincipal.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return View(new List<Server>());
+            }
+
+            var servers = await _context.ServerMembers
+                .Where(sm => sm.UserId == userId)
+                .Select(sm => sm.Server)
+                .ToListAsync();
+
             return View(servers);
         }
     }

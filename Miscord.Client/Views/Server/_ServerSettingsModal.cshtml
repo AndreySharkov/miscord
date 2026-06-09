@@ -121,7 +121,28 @@
                     <input type="text" id="invite-link-input" class="cs-input" readonly value="" />
                     <button type="button" class="cs-btn cs-btn--primary" onclick="copyInviteLink()">Copy</button>
                 </div>
-                <p class="cs-help-text">Your invite link never expires.</p>
+            </div>
+
+            <div class="cs-field" style="margin-top: 16px;">
+                <label class="cs-label">Link Settings</label>
+                <div style="display: flex; gap: 12px;">
+                    <select id="invite-expiration" class="cs-input" style="flex: 1;">
+                        <option value="">Never Expire</option>
+                        <option value="1">1 Day</option>
+                        <option value="7">7 Days</option>
+                        <option value="30">30 Days</option>
+                    </select>
+                    <select id="invite-max-uses" class="cs-input" style="flex: 1;">
+                        <option value="">No limit</option>
+                        <option value="1">1 Use</option>
+                        <option value="5">5 Uses</option>
+                        <option value="10">10 Uses</option>
+                        <option value="25">25 Uses</option>
+                        <option value="50">50 Uses</option>
+                        <option value="100">100 Uses</option>
+                    </select>
+                </div>
+                <button type="button" class="cs-btn cs-btn--secondary" style="margin-top: 12px; width: 100%;" onclick="generateNewInvite()">Generate New Link</button>
             </div>
         </div>
     </div>

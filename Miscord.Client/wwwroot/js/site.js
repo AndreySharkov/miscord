@@ -314,13 +314,19 @@ function loadServer(serverId, el) {
                     if (headerName && newName) headerName.innerText = newName;
                 }
 
-                // Show/Hide Server Settings based on Ownership or Admin status
+                // Show/Hide Server Settings and Leave Server based on Ownership or Admin status
                 const ownerId = document.getElementById('current-server-owner-id-val')?.value;
                 const currentUserId = document.getElementById('current-user-id')?.value;
                 const isAdmin = document.getElementById('current-server-is-admin-val')?.value === 'true';
+                
                 const settingsItem = document.getElementById('server-settings-dropdown-item');
                 if (settingsItem) {
                     settingsItem.style.display = (ownerId === currentUserId || isAdmin) ? 'flex' : 'none';
+                }
+
+                const leaveItem = document.getElementById('leave-server-dropdown-item');
+                if (leaveItem) {
+                    leaveItem.style.display = (ownerId !== currentUserId) ? 'flex' : 'none';
                 }
             }
         });
@@ -843,16 +849,48 @@ function deleteServer() {
     }
 }
 
+function leaveServer() {
+    const serverId = document.getElementById('current-server-id-val')?.value;
+    if (!serverId) return;
+    
+    if (confirm("Are you sure you want to leave this server?")) {
+        fetch('/Server/LeaveServer?serverId=' + serverId, { method: 'POST' })
+            .then(r => {
+                if (r.ok) window.location.href = '/';
+                else r.text().then(alert);
+            });
+    }
+}
+
 function openInviteModal() {
     const modal = document.getElementById('invite-modal');
     const serverId = document.getElementById('current-server-id-val')?.value;
     if (modal && serverId) {
-        document.getElementById('invite-link-input').value = window.location.origin + '/Server/Join/' + serverId;
+        generateNewInvite();
         modal.classList.add('open');
     } else {
         alert('Please select a server first.');
     }
     document.getElementById('server-dropdown-menu')?.classList.remove('open');
+}
+
+function generateNewInvite() {
+    const serverId = document.getElementById('current-server-id-val')?.value;
+    if (!serverId) return;
+
+    const expiration = document.getElementById('invite-expiration').value;
+    const maxUses = document.getElementById('invite-max-uses').value;
+
+    const fd = new FormData();
+    fd.append('serverId', serverId);
+    if (expiration) fd.append('expirationDays', expiration);
+    if (maxUses) fd.append('maxUses', maxUses);
+
+    fetch('/Server/CreateInvite', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('invite-link-input').value = window.location.origin + '/Server/Join/' + data.token;
+        });
 }
 
 function closeInviteModal() { document.getElementById('invite-modal')?.classList.remove('open'); }
