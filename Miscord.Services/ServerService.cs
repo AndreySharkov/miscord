@@ -13,6 +13,7 @@ namespace Miscord.Services
         Task<List<Server>> GetServersAsync();
         Task<Server?> GetServerDetailsAsync(int serverId);
         Task<Server?> GetServerByIdAsync(int serverId);
+        Task<Server?> GetServerForSidebarAsync(int serverId);
         Task<int> CreateServerAsync(string name, string ownerId, byte[]? iconData, string? serverType);
         Task UpdateServerAsync(int serverId, string name, byte[]? iconData);
         Task DeleteServerAsync(int serverId);
@@ -53,6 +54,53 @@ namespace Miscord.Services
         public async Task<Server?> GetServerByIdAsync(int serverId)
         {
             return await _context.Servers.FirstOrDefaultAsync(s => s.Id == serverId && !s.IsDeleted);
+        }
+
+        public async Task<Server?> GetServerForSidebarAsync(int serverId)
+        {
+            return await _context.Servers
+                .AsNoTracking()
+                .Include(s => s.Members)
+                    .ThenInclude(m => m.User)
+                .Include(s => s.Members)
+                    .ThenInclude(m => m.MemberRoles)
+                        .ThenInclude(mr => mr.ServerRole)
+                .Include(s => s.Roles)
+                .Select(s => new Server
+                {
+                    Id = s.Id,
+                    OwnerId = s.OwnerId,
+                    Roles = s.Roles.Select(r => new ServerRole
+                    {
+                        Id = r.Id,
+                        Name = r.Name,
+                        Color = r.Color,
+                        Position = r.Position
+                    }).ToList(),
+                    Members = s.Members.Select(m => new ServerMember
+                    {
+                        Id = m.Id,
+                        UserId = m.UserId,
+                        Nickname = m.Nickname,
+                        User = new ApplicationUser
+                        {
+                            Id = m.User.Id,
+                            UserName = m.User.UserName,
+                            Nickname = m.User.Nickname,
+                            ProfilePictureData = m.User.ProfilePictureData != null ? new byte[0] : null // Flag to indicate if PFP exists
+                        },
+                        MemberRoles = m.MemberRoles.Select(mr => new ServerMemberRole
+                        {
+                            ServerRoleId = mr.ServerRoleId,
+                            ServerRole = new ServerRole
+                            {
+                                Id = mr.ServerRole.Id,
+                                Position = mr.ServerRole.Position
+                            }
+                        }).ToList()
+                    }).ToList()
+                })
+                .FirstOrDefaultAsync(s => s.Id == serverId && !s.IsDeleted);
         }
 
         public async Task<int> CreateServerAsync(string name, string ownerId, byte[]? iconData, string? serverType)

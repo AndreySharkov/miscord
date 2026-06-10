@@ -74,7 +74,7 @@ namespace Miscord.Client.Controllers
         [HttpGet]
         public async Task<IActionResult> GetMembersSidebar(int serverId)
         {
-            var server = await _serverService.GetServerDetailsAsync(serverId);
+            var server = await _serverService.GetServerForSidebarAsync(serverId);
             if (server == null) return NotFound();
             return PartialView("_MembersSidebar", server);
         }

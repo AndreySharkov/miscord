@@ -51,7 +51,7 @@
                         }
                         else
                         {
-                            <img src="data:image/png;base64,@Convert.ToBase64String(member.User.ProfilePictureData)" alt="@displayName" />
+                            <img src="/Server/GetProfilePicture?userId=@member.UserId" alt="@displayName" />
                         }
                         <div class="member-status-dot online"></div>
                     </div>
@@ -93,7 +93,7 @@
                         }
                         else
                         {
-                            <img src="data:image/png;base64,@Convert.ToBase64String(member.User.ProfilePictureData)" alt="@displayName" />
+                            <img src="/Server/GetProfilePicture?userId=@member.UserId" alt="@displayName" />
                         }
                         <div class="member-status-dot offline"></div>
                     </div>

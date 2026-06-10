@@ -11,6 +11,7 @@ namespace Miscord.Services
     public interface IChannelService
     {
         Task<Channel?> GetChannelByIdAsync(int channelId);
+        Task<Channel?> GetChannelForChatAsync(int channelId);
         Task<List<Message>> GetChatMessagesAsync(int channelId);
         Task CreateCategoryAsync(int serverId, string name);
         Task CreateChannelAsync(int serverId, string name, int? categoryId);
@@ -43,6 +44,26 @@ namespace Miscord.Services
                 .Include(c => c.Server)
                     .ThenInclude(s => s.Roles.OrderByDescending(r => r.Position))
                 .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == channelId);
+        }
+
+        public async Task<Channel?> GetChannelForChatAsync(int channelId)
+        {
+            return await _context.Channels
+                .AsNoTracking()
+                .Include(c => c.Server)
+                .Select(c => new Channel
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                    ServerId = c.ServerId,
+                    Server = new Server
+                    {
+                        Id = c.Server.Id,
+                        Name = c.Server.Name,
+                        OwnerId = c.Server.OwnerId
+                    }
+                })
                 .FirstOrDefaultAsync(c => c.Id == channelId);
         }
 

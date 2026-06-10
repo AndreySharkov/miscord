@@ -25,8 +25,14 @@ namespace Miscord.Client.ViewComponents
             }
 
             var servers = await _context.ServerMembers
+                .AsNoTracking()
                 .Where(sm => sm.UserId == userId)
-                .Select(sm => sm.Server)
+                .Select(sm => new Server
+                {
+                    Id = sm.Server.Id,
+                    Name = sm.Server.Name,
+                    IconData = sm.Server.IconData
+                })
                 .ToListAsync();
 
             return View(servers);

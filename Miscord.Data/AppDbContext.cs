@@ -136,8 +136,13 @@ namespace Miscord.Data
             builder.Entity<Reaction>()
                 .HasQueryFilter(r => !r.Message.IsDeleted);
 
-            
+            builder.Entity<Invite>()
+                .HasIndex(i => i.Token)
+                .IsUnique();
 
-        }
-    }
-}
+            builder.Entity<ServerMember>()
+                .HasIndex(sm => new { sm.ServerId, sm.UserId })
+                .IsUnique();
+            }
+            }
+            }

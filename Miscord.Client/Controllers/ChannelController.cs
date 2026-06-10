@@ -36,7 +36,7 @@ namespace Miscord.Client.Controllers
         [HttpGet]
         public async Task<IActionResult> GetChat(int channelId)
         {
-            var channel = await _channelService.GetChannelByIdAsync(channelId);
+            var channel = await _channelService.GetChannelForChatAsync(channelId);
             if (channel == null) return NotFound();
 
             var messages = await _channelService.GetChatMessagesAsync(channelId);
