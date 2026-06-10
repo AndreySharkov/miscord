@@ -326,7 +326,13 @@ function loadServer(serverId, el) {
 
                 const leaveItem = document.getElementById('leave-server-dropdown-item');
                 if (leaveItem) {
-                    leaveItem.style.display = (ownerId !== currentUserId) ? 'flex' : 'none';
+                    leaveItem.style.display = 'flex';
+                }
+
+                // Automatically click the first channel if available
+                const firstChannel = list.querySelector('.channel-item');
+                if (firstChannel) {
+                    firstChannel.click();
                 }
             }
         });
@@ -704,11 +710,24 @@ let serverRoles = [];
 
 function loadRoles() {
     const serverId = document.getElementById('ss-server-id').value;
-    fetch('/Server/GetRoles?serverId=' + serverId)
-        .then(r => r.json())
+    if (!serverId || serverId === "0") return Promise.resolve();
+    
+    return fetch('/Server/GetRoles?serverId=' + serverId)
+        .then(async r => {
+            const contentType = r.headers.get("content-type");
+            if (!r.ok) {
+                const text = await r.text().catch(() => "");
+                throw new Error(`Failed to load roles: ${r.status} ${text}`);
+            }
+            if (!contentType || !contentType.includes("application/json")) {
+                throw new Error("Expected JSON response from server but got " + contentType);
+            }
+            return r.json();
+        })
         .then(roles => {
             serverRoles = roles;
             const container = document.getElementById('roles-list-container');
+            if (!container) return;
             container.innerHTML = '';
             roles.forEach(role => {
                 const div = document.createElement('div');
@@ -718,13 +737,22 @@ function loadRoles() {
                 container.appendChild(div);
             });
             document.getElementById('role-edit-container').style.display = 'none';
+        })
+        .catch(err => {
+            console.error("Error loading roles:", err);
+            // Don't alert here to avoid spamming the user if something minor goes wrong, but log it.
         });
 }
 
 function editRole(roleId) {
-    const role = serverRoles.find(r => r.id === roleId);
-    if (!role) return;
-    document.querySelectorAll('.role-item').forEach(item => item.classList.toggle('active', item.innerText === role.name));
+    const role = serverRoles.find(r => r.id == roleId); // Use == for loose comparison in case of string/int mismatch
+    if (!role) {
+        console.warn("Role not found for editing:", roleId);
+        return;
+    }
+    document.querySelectorAll('.role-item').forEach(item => {
+        item.classList.toggle('active', item.querySelector('span').innerText === role.name);
+    });
     document.getElementById('role-edit-container').style.display = 'block';
     document.getElementById('edit-role-id').value = role.id;
     document.getElementById('edit-role-name').value = role.name;
@@ -739,28 +767,38 @@ function editRole(roleId) {
 
 function createNewRole() {
     const serverId = document.getElementById('ss-server-id').value;
-    if (!serverId) {
-        console.error("No server ID found for role creation.");
+    if (!serverId || serverId === "0") {
+        console.error("No valid server ID found for role creation. ID:", serverId);
+        alert("Error: No server selected.");
         return;
     }
     const fd = new FormData();
     fd.append('serverId', serverId);
     fd.append('name', "new role");
-    
+
     fetch('/Server/CreateRole', { method: 'POST', body: fd })
-        .then(r => {
-            if (!r.ok) throw new Error("Failed to create role");
-            return r.json();
+        .then(async r => {
+            const contentType = r.headers.get("content-type");
+            let data = {};
+            if (contentType && contentType.includes("application/json")) {
+                data = await r.json().catch(() => ({}));
+            }
+            if (!r.ok) {
+                throw new Error(data.message || "Failed to create role: " + r.status);
+            }
+            return data;
         })
-        .then(role => {
-            loadRoles();
+        .then(async role => {
+            await loadRoles();
             setTimeout(() => {
-                editRole(role.id);
-            }, 200);
+                if (role && role.id) {
+                    editRole(role.id);
+                }
+            }, 300);
         })
         .catch(err => {
             console.error("Error creating role:", err);
-            alert("Failed to create role. Please try again.");
+            alert("Error: " + err.message);
         });
 }
 
@@ -772,10 +810,15 @@ function deleteCurrentRole() {
 
 function loadMembers() {
     const serverId = document.getElementById('ss-server-id').value;
+    if (!serverId) return;
     fetch('/Server/GetMembers?serverId=' + serverId)
-        .then(r => r.json())
+        .then(r => {
+            if (!r.ok) throw new Error("Failed to load members");
+            return r.json();
+        })
         .then(members => {
             const container = document.getElementById('members-list-container');
+            if (!container) return;
             container.innerHTML = '';
             members.forEach(m => {
                 const div = document.createElement('div');
@@ -797,7 +840,8 @@ function loadMembers() {
                 `;
                 container.appendChild(div);
             });
-        });
+        })
+        .catch(err => console.error("Error loading members:", err));
 }
 
 function openMemberRolePicker(userId, btn) {
@@ -852,6 +896,13 @@ function deleteServer() {
 function leaveServer() {
     const serverId = document.getElementById('current-server-id-val')?.value;
     if (!serverId) return;
+    
+    const ownerId = document.getElementById('current-server-owner-id-val')?.value;
+    const currentUserId = document.getElementById('current-user-id')?.value;
+
+    if (ownerId === currentUserId) {
+        alert("Notice: As the owner, leaving this server will transfer ownership to the next most senior member.");
+    }
     
     if (confirm("Are you sure you want to leave this server?")) {
         fetch('/Server/LeaveServer?serverId=' + serverId, { method: 'POST' })

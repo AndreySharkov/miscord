@@ -14,10 +14,12 @@ using Miscord.Data.Models;
 using System.Security.Claims;
 using Microsoft.Identity.Client;
 using Miscord.Client.Services;
+using Microsoft.AspNetCore.Authorization;
 
 
 namespace Miscord.Client.Controllers
 {
+    [Authorize]
     public class ServerController : Controller
     {
         private readonly AppDbContext _context;
@@ -427,25 +429,55 @@ namespace Miscord.Client.Controllers
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!await _permissionHelper.HasPermission(userId, serverId, ServerPermissions.ManageRoles)) return Unauthorized();
 
-            var roles = await _context.ServerRoles.Where(r => r.ServerId == serverId).OrderBy(r => r.Position).ToListAsync();
-            return Ok(roles);
+            var roles = await _context.ServerRoles
+                .Where(r => r.ServerId == serverId)
+                .OrderBy(r => r.Position)
+                .Select(r => new {
+                    id = r.Id,
+                    name = r.Name,
+                    color = r.Color,
+                    position = r.Position,
+                    permissions = r.Permissions.ToString()
+                })
+                .ToListAsync();
+
+            return Json(roles);
         }
 
         [HttpPost]
         public async Task<IActionResult> CreateRole([FromForm] int serverId, [FromForm] string name)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (!await _permissionHelper.HasPermission(userId, serverId, ServerPermissions.ManageRoles)) return Unauthorized();
+            try
+            {
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(userId)) return Unauthorized(new { message = "User not found." });
 
-            var role = new ServerRole {
-                ServerId = serverId,
-                Name = name,
-                Position = await _context.ServerRoles.CountAsync(r => r.ServerId == serverId),
-                Permissions = (long)(ServerPermissions.SendMessages | ServerPermissions.AddReactions | ServerPermissions.ReadMessageHistory)
-            };
-            _context.ServerRoles.Add(role);
-            await _context.SaveChangesAsync();
-            return Ok(role);
+                if (!await _permissionHelper.HasPermission(userId, serverId, ServerPermissions.ManageRoles)) 
+                    return Unauthorized(new { message = "You do not have permission to manage roles." });
+
+                var nextPosition = await _context.ServerRoles.CountAsync(r => r.ServerId == serverId);
+                var role = new ServerRole {
+                    ServerId = serverId,
+                    Name = name ?? "new role",
+                    Color = "#99aab5", // Default Discord-ish color
+                    Position = nextPosition,
+                    Permissions = (long)(ServerPermissions.SendMessages | ServerPermissions.AddReactions | ServerPermissions.ReadMessageHistory)
+                };
+                _context.ServerRoles.Add(role);
+                await _context.SaveChangesAsync();
+                
+                return Json(new { 
+                    id = role.Id, 
+                    name = role.Name, 
+                    color = role.Color, 
+                    position = role.Position, 
+                    permissions = role.Permissions.ToString()
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         [HttpPost]
@@ -499,7 +531,7 @@ namespace Miscord.Client.Controllers
                 })
                 .ToListAsync();
 
-            return Ok(members);
+            return Json(members);
         }
 
         [HttpPost]
@@ -571,18 +603,36 @@ namespace Miscord.Client.Controllers
         public async Task<IActionResult> LeaveServer(int serverId)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var server = await _context.Servers.FindAsync(serverId);
+            var server = await _context.Servers
+                .Include(s => s.Members)
+                .FirstOrDefaultAsync(s => s.Id == serverId);
+            
             if (server == null) return NotFound();
 
-            if (server.OwnerId == userId)
-                return BadRequest("Owners cannot leave their own server. Delete it or transfer ownership instead.");
-
             var member = await _context.ServerMembers.FirstOrDefaultAsync(sm => sm.ServerId == serverId && sm.UserId == userId);
-            if (member != null)
+            if (member == null) return Ok(); // Already not a member
+
+            if (server.OwnerId == userId)
             {
-                _context.ServerMembers.Remove(member);
-                await _context.SaveChangesAsync();
+                // Find the next most senior member (excluding the owner)
+                var nextMember = await _context.ServerMembers
+                    .Where(sm => sm.ServerId == serverId && sm.UserId != userId)
+                    .OrderBy(sm => sm.JoinedAt)
+                    .FirstOrDefaultAsync();
+
+                if (nextMember != null)
+                {
+                    server.OwnerId = nextMember.UserId;
+                }
+                else
+                {
+                    // No other members, delete the server
+                    server.IsDeleted = true;
+                }
             }
+
+            _context.ServerMembers.Remove(member);
+            await _context.SaveChangesAsync();
 
             return Ok();
         }
