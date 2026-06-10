@@ -134,6 +134,7 @@ namespace Miscord.Services
                     .ThenInclude(m => m.MemberRoles)
                         .ThenInclude(mr => mr.ServerRole)
                 .Include(s => s.Roles)
+                .Where(s => s.Id == serverId && !s.IsDeleted)
                 .Select(s => new Server
                 {
                     Id = s.Id,
@@ -168,7 +169,7 @@ namespace Miscord.Services
                         }).ToList()
                     }).ToList()
                 })
-                .FirstOrDefaultAsync(s => s.Id == serverId && !s.IsDeleted);
+                .FirstOrDefaultAsync();
         }
 
         public async Task<int> CreateServerAsync(string name, string ownerId, byte[]? iconData, string? serverType)

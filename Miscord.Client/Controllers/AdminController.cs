@@ -22,9 +22,15 @@ namespace Miscord.Client.Controllers
             _serverService = serverService;
         }
 
+        private bool IsAuthorizedAdmin()
+        {
+            return User.Identity?.Name == "admin@miscord.com";
+        }
+
         [HttpGet]
         public async Task<IActionResult> Index()
         {
+            if (!IsAuthorizedAdmin()) return Forbid();
             var totalUsers = await _context.Users.CountAsync();
             var totalServers = await _context.Servers.Where(s => !s.IsDeleted).CountAsync();
             var totalMessages = await _context.Messages.CountAsync();

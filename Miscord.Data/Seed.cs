@@ -34,7 +34,7 @@ namespace Miscord.Data
                 };
                 
                 // Creates the user with a default password
-                await userManager.CreateAsync(adminUser, "AdminPass123!");
+                await userManager.CreateAsync(adminUser, "zlazamunda");
                 
                 // Assigns them to the Admin role
                 await userManager.AddToRoleAsync(adminUser, "Admin");

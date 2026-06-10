@@ -70,6 +70,72 @@ function closeDiscordAlert() {
     document.getElementById('discord-alert-modal').classList.remove('open');
 }
 
+// ─── Chat Search System ──────────────────────────
+let searchTimeout = null;
+
+function toggleSearchModal(show) {
+    const modal = document.getElementById('discord-search-modal');
+    if (!modal) return;
+    if (show) {
+        modal.classList.add('open');
+        const input = document.getElementById('chat-search-input');
+        input.value = '';
+        document.getElementById('search-results-container').innerHTML = `
+            <div class="search-empty-state" style="text-align: center; padding: 40px; color: #949ba4;">
+                <span style="font-size: 48px; display: block; margin-bottom: 16px;">🔍</span>
+                <p>Type something to search this channel...</p>
+            </div>`;
+        setTimeout(() => input.focus(), 100);
+    } else {
+        modal.classList.remove('open');
+    }
+}
+
+document.addEventListener('keydown', (e) => {
+    // Ctrl + F (or Cmd + F) to search
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        if (currentChannelId) {
+            e.preventDefault();
+            toggleSearchModal(true);
+        }
+    }
+    // Escape to close search
+    if (e.key === 'Escape') {
+        toggleSearchModal(false);
+    }
+});
+
+document.getElementById('chat-search-input')?.addEventListener('input', (e) => {
+    const query = e.target.value.trim();
+    if (searchTimeout) clearTimeout(searchTimeout);
+
+    if (!query) {
+        document.getElementById('search-results-container').innerHTML = '<p style="text-align:center; padding:20px; color:#949ba4;">Type something to search...</p>';
+        return;
+    }
+
+    searchTimeout = setTimeout(() => {
+        fetch(`/Channel/SearchMessages?channelId=${currentChannelId}&query=${encodeURIComponent(query)}`)
+            .then(r => r.json())
+            .then(results => {
+                const container = document.getElementById('search-results-container');
+                if (results.length === 0) {
+                    container.innerHTML = '<p style="text-align:center; padding:20px; color:#949ba4;">No results found.</p>';
+                    return;
+                }
+                container.innerHTML = results.map(r => `
+                    <div class="search-result-item" onclick="scrollToMessage(${r.id}); toggleSearchModal(false);">
+                        <div class="sri-header">
+                            <span class="sri-author">${escapeHtml(r.author)}</span>
+                            <span class="sri-time">${r.timestamp}</span>
+                        </div>
+                        <div class="sri-content">${escapeHtml(r.content)}</div>
+                    </div>
+                `).join('');
+            });
+    }, 300);
+});
+
 // ─── Username → stable avatar color ───────────────────────────────
 var AVATAR_COLORS = [
     '#e91e63','#9c27b0','#673ab7','#3f51b5',

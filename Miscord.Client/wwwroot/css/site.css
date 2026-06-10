@@ -1095,6 +1095,40 @@ body {
     margin-top: 4px;
 }
 
+/* ─── Search Results ─────────────────────────────── */
+.search-result-item {
+    padding: 12px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.15s;
+    border-bottom: 1px solid #1e1f22;
+}
+.search-result-item:hover {
+    background-color: #35373c;
+}
+.sri-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+.sri-author {
+    font-weight: 600;
+    color: #fff;
+    font-size: 14px;
+}
+.sri-time {
+    color: #949ba4;
+    font-size: 12px;
+}
+.sri-content {
+    color: #dbdee1;
+    font-size: 14px;
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* ─── Empty / placeholder states ─────────────────────────── */
 .empty-main {
     flex: 1;

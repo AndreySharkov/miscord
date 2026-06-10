@@ -163,6 +163,31 @@ namespace Miscord.Client.Controllers
             return File(result.Value.data, result.Value.contentType, result.Value.fileName);
         }
 
+        [HttpGet]
+        public async Task<IActionResult> SearchMessages(int channelId, string query)
+        {
+            if (string.IsNullOrWhiteSpace(query)) return BadRequest();
+
+            var messages = await _channelService.GetChatMessagesAsync(channelId);
+            
+            var results = messages
+                .Select(m => new { 
+                    Message = m, 
+                    Score = FuzzySearch.GetJaroWinklerSimilarity(m.Content, query) 
+                })
+                .Where(r => r.Score > 0.7 || r.Message.Content.Contains(query, StringComparison.OrdinalIgnoreCase)) 
+                .OrderByDescending(r => r.Score)
+                .Take(10)
+                .Select(r => new {
+                    id = r.Message.Id,
+                    content = r.Message.Content,
+                    author = r.Message.AuthorNickname ?? r.Message.AuthorUserName,
+                    timestamp = r.Message.Timestamp.ToString("MM/dd/yyyy h:mm tt")
+                });
+
+            return Ok(results);
+        }
+
         [HttpPost]
         public async Task<IActionResult> ToggleReaction([FromForm] int messageId, [FromForm] string emoji)
         {
