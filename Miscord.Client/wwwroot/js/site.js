@@ -521,9 +521,22 @@ function showMemberContextMenu(e, userId, displayName, serverId, isOwner) {
         });
     }
 
-    function changeNicknamePrompt() {
-    const newNick = prompt("Enter new nickname for " + currentMemberName + " (leave empty to reset):");
-    if (newNick === null) return;
+function changeNicknamePrompt() {
+    const modal = document.getElementById('nickname-modal');
+    const targetName = document.getElementById('nick-modal-target-name');
+    const input = document.getElementById('nick-modal-input');
+    if (modal && targetName && input) {
+        targetName.innerText = currentMemberName;
+        input.value = ''; // Reset
+        modal.classList.add('open');
+    }
+}
+
+function closeNicknameModal() { document.getElementById('nickname-modal')?.classList.remove('open'); }
+
+function submitNicknameChange() {
+    const input = document.getElementById('nick-modal-input');
+    const newNick = input?.value;
 
     const fd = new FormData();
     fd.append('serverId', currentServerIdForMember);
@@ -532,42 +545,65 @@ function showMemberContextMenu(e, userId, displayName, serverId, isOwner) {
 
     fetch('/Server/UpdateNickname', { method: 'POST', body: fd })
         .then(r => {
-            if (r.ok) location.reload();
-            else r.text().then(alert);
+            if (r.ok) {
+                closeNicknameModal();
+                location.reload();
+            } else r.text().then(alert);
         });
-    }
+}
 
-    function kickMemberAction() {
-    if (confirm("Are you sure you want to kick " + currentMemberName + "?")) {
-        const fd = new FormData();
-        fd.append('serverId', currentServerIdForMember);
-        fd.append('userId', currentMemberId);
-
-        fetch('/Server/KickMember', { method: 'POST', body: fd })
-            .then(r => {
-                if (r.ok) location.reload();
-                else r.text().then(alert);
-            });
+function kickMemberAction() {
+    const modal = document.getElementById('kick-modal');
+    const targetName = document.getElementById('kick-modal-target-name');
+    if (modal && targetName) {
+        targetName.innerText = currentMemberName;
+        modal.classList.add('open');
     }
-    }
+}
 
-    function banMemberAction() {
-    const reason = prompt("Enter reason for banning " + currentMemberName + " (optional):");
-    if (reason === null) return;
+function closeKickModal() { document.getElementById('kick-modal')?.classList.remove('open'); }
 
-    if (confirm("Are you sure you want to BAN " + currentMemberName + "?")) {
-        const fd = new FormData();
-        fd.append('serverId', currentServerIdForMember);
-        fd.append('userId', currentMemberId);
-        fd.append('reason', reason);
+function submitKickAction() {
+    const fd = new FormData();
+    fd.append('serverId', currentServerIdForMember);
+    fd.append('userId', currentMemberId);
 
-        fetch('/Server/BanMember', { method: 'POST', body: fd })
-            .then(r => {
-                if (r.ok) location.reload();
-                else r.text().then(alert);
-            });
+    fetch('/Server/KickMember', { method: 'POST', body: fd })
+        .then(r => {
+            if (r.ok) {
+                closeKickModal();
+                location.reload();
+            } else r.text().then(alert);
+        });
+}
+
+function banMemberAction() {
+    const modal = document.getElementById('ban-modal');
+    const targetName = document.getElementById('ban-modal-target-name');
+    if (modal && targetName) {
+        targetName.innerText = currentMemberName;
+        document.getElementById('ban-modal-reason').value = '';
+        modal.classList.add('open');
     }
-    }
+}
+
+function closeBanModal() { document.getElementById('ban-modal')?.classList.remove('open'); }
+
+function submitBanAction() {
+    const reason = document.getElementById('ban-modal-reason').value;
+    const fd = new FormData();
+    fd.append('serverId', currentServerIdForMember);
+    fd.append('userId', currentMemberId);
+    fd.append('reason', reason);
+
+    fetch('/Server/BanMember', { method: 'POST', body: fd })
+        .then(r => {
+            if (r.ok) {
+                closeBanModal();
+                location.reload();
+            } else r.text().then(alert);
+        });
+}
 
     // ─── Chat Input ────────────────────────────────────────────────────
 
