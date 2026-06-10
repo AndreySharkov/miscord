@@ -111,6 +111,7 @@ namespace Miscord.Client.Controllers
             }
 
             var serverId = await _serverService.CreateServerAsync(ServerName, userId, iconData, serverType);
+            TempData["Message"] = $"Server '{ServerName}' created successfully!";
             return Ok(new { serverId });
         }
 
@@ -213,22 +214,6 @@ namespace Miscord.Client.Controllers
 
             await _roleService.DeleteRoleAsync(serverId, roleId);
             return Ok();
-        }
-
-        [HttpGet]
-        public async Task<IActionResult> GetMembers(int serverId)
-        {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (!await _permissionHelper.HasPermission(userId, serverId, ServerPermissions.ManageRoles)) return Unauthorized();
-
-            var members = await _memberService.GetMembersAsync(serverId);
-            return Json(members.Select(sm => new {
-                sm.UserId,
-                DisplayName = sm.Nickname ?? sm.User.Nickname ?? sm.User.UserName,
-                sm.User.UserName,
-                HasPfp = sm.User.ProfilePictureData != null,
-                Roles = sm.MemberRoles.Select(mr => new { mr.ServerRole.Id, mr.ServerRole.Name, mr.ServerRole.Color })
-            }));
         }
 
         [HttpPost]

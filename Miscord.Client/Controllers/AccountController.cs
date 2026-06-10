@@ -44,6 +44,7 @@ namespace Miscord.Client.Controllers
                 
                 if (result.Succeeded)
                 {
+                    TempData["Message"] = "Successfully logged in! Welcome back.";
                     return RedirectToAction("Index", "Home"); // Send them to the homepage on success
                 }
                 
@@ -61,6 +62,7 @@ namespace Miscord.Client.Controllers
         public async Task<IActionResult> Logout()
         {
             await _signInManager.SignOutAsync();
+            TempData["Message"] = "You have been logged out.";
             return RedirectToAction("Index", "Home");
         }
 
@@ -81,6 +83,7 @@ namespace Miscord.Client.Controllers
                     await _userManager.AddToRoleAsync(user, "User");
                     await _signInManager.SignInAsync(user, isPersistent: false);
 
+                    TempData["Message"] = "Account created successfully! Welcome to Miscord.";
                     return RedirectToAction("Index", "Home");
                 }
                 foreach (var error in result.Errors)

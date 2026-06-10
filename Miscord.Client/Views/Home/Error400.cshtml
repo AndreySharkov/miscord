@@ -1,0 +1,31 @@
+@model string
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "400 - Bad Request";
+}
+
+<div class="error-page">
+    <div class="error-visual">🤨</div>
+    <h1 class="error-code">400</h1>
+    <h2 class="error-message">Invalid request.</h2>
+    <p class="error-desc">Your browser sent a request that this server could not understand. It might be a broken link or a typo.</p>
+    <a href="/" class="landing-btn landing-btn--primary">Back to Home</a>
+    <div class="request-id">Request ID: @Model</div>
+</div>
+
+<style>
+    .error-page {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 60px 20px;
+        color: #fff;
+    }
+    .error-visual { font-size: 80px; margin-bottom: 24px; }
+    .error-code { font-size: 64px; font-weight: 800; color: #eb459e; margin: 0; }
+    .error-message { font-size: 32px; margin-bottom: 12px; }
+    .error-desc { color: #b5bac1; max-width: 500px; margin-bottom: 32px; line-height: 1.6; }
+    .request-id { margin-top: 40px; font-size: 12px; color: #4e5058; font-family: monospace; }
+</style>

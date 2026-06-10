@@ -539,7 +539,7 @@ function showMemberContextMenu(e, userId, displayName, serverId, isOwner) {
     fetch('/Server/GetRoles?serverId=' + serverId)
         .then(r => r.json())
         .then(roles => {
-            fetch('/Server/GetMembers?serverId=' + serverId)
+            fetch('/api/server/members?serverId=' + serverId)
                 .then(r => r.json())
                 .then(members => {
                     const member = members.find(m => m.userId === userId);
@@ -568,7 +568,7 @@ function showMemberContextMenu(e, userId, displayName, serverId, isOwner) {
     }
 
     function toggleMemberRole(serverId, userId, roleId, currentHas) {
-    fetch('/Server/GetMembers?serverId=' + serverId)
+    fetch('/api/server/members?serverId=' + serverId)
         .then(r => r.json())
         .then(members => {
             const member = members.find(m => m.userId === userId);
@@ -1154,7 +1154,7 @@ function loadMembers() {
     if (!serverId) return;
     const ownerId = document.getElementById('current-server-owner-id-val')?.value;
 
-    fetch('/Server/GetMembers?serverId=' + serverId)
+    fetch('/api/server/members?serverId=' + serverId)
         .then(r => {
             if (!r.ok) throw new Error("Failed to load members");
             return r.json();
@@ -1230,7 +1230,7 @@ function addRoleToMember(userId, roleId) {
     const serverId = document.getElementById('ss-server-id').value;
     // For simplicity, we just toggle or add. Real implementation would be more complex.
     // Fetch current roles first would be better, but let's just use a comma-separated list.
-    fetch('/Server/GetMembers?serverId=' + serverId).then(r => r.json()).then(members => {
+    fetch('/api/server/members?serverId=' + serverId).then(r => r.json()).then(members => {
         const member = members.find(m => m.userId === userId);
         let roleIds = member.roles.map(r => r.id);
         if (roleIds.includes(roleId)) roleIds = roleIds.filter(id => id !== roleId);
