@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Miscord.Client.Services
+namespace Miscord.Services
 {
     public interface IPresenceTracker
     {
@@ -14,7 +14,6 @@ namespace Miscord.Client.Services
 
     public class PresenceTracker : IPresenceTracker
     {
-        // UserId -> Set of ConnectionIds
         private static readonly ConcurrentDictionary<string, HashSet<string>> OnlineUsers = new();
 
         public void UserConnected(string userId, string connectionId)

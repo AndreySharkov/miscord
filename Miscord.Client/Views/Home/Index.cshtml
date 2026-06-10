@@ -1,8 +1,264 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+@{
+    ViewData["Title"] = "Home";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+@if (User.Identity?.IsAuthenticated ?? false)
+{
+    <div class="dashboard-home">
+        <div class="dashboard-hero">
+            <h1 class="dashboard-title">Welcome back!</h1>
+            <p class="dashboard-subtitle">It's great to see you again. Select a server from the sidebar to start chatting, or create your own!</p>
+        </div>
+
+        <div class="dashboard-actions">
+            <button onclick="openCreateServerModal()" class="dashboard-btn">
+                <span class="btn-icon">⊕</span>
+                <div class="btn-text">
+                    <strong>Create a Server</strong>
+                    <span>Your own place for you and your friends.</span>
+                </div>
+            </button>
+            <a href="#" class="dashboard-btn" onclick="alert('Server discovery is coming soon!')">
+                <span class="btn-icon">🔍</span>
+                <div class="btn-text">
+                    <strong>Discover Servers</strong>
+                    <span>Find new communities to join.</span>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <style>
+        .dashboard-home {
+            padding: 60px 40px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .dashboard-hero {
+            margin-bottom: 48px;
+            text-align: center;
+        }
+        .dashboard-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: #f2f3f5;
+            margin-bottom: 12px;
+        }
+        .dashboard-subtitle {
+            font-size: 16px;
+            color: #b5bac1;
+            line-height: 1.5;
+        }
+        .dashboard-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .dashboard-btn {
+            background: #2b2d31;
+            border: 1px solid #1e1f22;
+            border-radius: 8px;
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            cursor: pointer;
+            text-align: left;
+            text-decoration: none;
+            transition: background-color 0.15s, transform 0.1s;
+            color: inherit;
+            width: 100%;
+        }
+        .dashboard-btn:hover {
+            background-color: #35373c;
+            transform: translateY(-2px);
+        }
+        .btn-icon {
+            font-size: 32px;
+            background: #313338;
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #23a559;
+        }
+        .btn-text {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .btn-text strong {
+            font-size: 18px;
+            color: #fff;
+        }
+        .btn-text span {
+            font-size: 14px;
+            color: #949ba4;
+        }
+        @@media (max-width: 600px) {
+            .dashboard-actions {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+}
+else
+{
+    <div class="landing-page">
+        <div class="landing-content">
+            <div class="landing-logo">
+                <img src="/gurimilishi.png" alt="Gurimilishi Logo" />
+            </div>
+            <h1 class="landing-title">Imagine a place...</h1>
+            <p class="landing-subtitle">
+                ...where you can belong to a school club, a gaming group, or a worldwide art community. 
+                Where just you and a handful of friends can spend time together. 
+                A place that makes it easy to talk every day and hang out more often.
+            </p>
+
+            <div class="landing-actions">
+                <a asp-controller="Account" asp-action="Login" class="landing-btn landing-btn--primary">Login</a>
+                <a asp-controller="Account" asp-action="Register" class="landing-btn landing-btn--secondary">Register</a>
+            </div>
+
+            <div class="landing-features">
+                <div class="feature-item">
+                    <div class="feature-icon">💬</div>
+                    <h3>Text Channels</h3>
+                    <p>Organize your conversations by topic so you don't overwhelm the group.</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">🛡️</div>
+                    <h3>Roles & Permissions</h3>
+                    <p>Manage your community with powerful role-based access control.</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">🚀</div>
+                    <h3>Real-time Chat</h3>
+                    <p>Experience lightning-fast messaging with SignalR technology.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .landing-page {
+            width: 100%;
+            max-width: 900px;
+            color: #fff;
+            text-align: center;
+        }
+
+        .landing-logo img {
+            width: 120px;
+            height: auto;
+            margin-bottom: 24px;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+        }
+
+        .landing-title {
+            font-size: 48px;
+            font-weight: 800;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+        }
+
+        .landing-subtitle {
+            font-size: 18px;
+            line-height: 1.6;
+            color: #dbdee1;
+            margin-bottom: 40px;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .landing-actions {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            margin-bottom: 60px;
+        }
+
+        .landing-btn {
+            padding: 12px 32px;
+            border-radius: 28px;
+            font-size: 18px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: transform 0.2s, background-color 0.2s;
+        }
+
+        .landing-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .landing-btn--primary {
+            background-color: #5865f2;
+            color: #fff;
+        }
+
+        .landing-btn--primary:hover {
+            background-color: #4752c4;
+        }
+
+        .landing-btn--secondary {
+            background-color: #fff;
+            color: #232428;
+        }
+
+        .landing-btn--secondary:hover {
+            background-color: #f2f3f5;
+        }
+
+        .landing-features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 24px;
+            margin-top: 40px;
+        }
+
+        .feature-item {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 24px;
+            border-radius: 12px;
+            transition: background 0.2s;
+        }
+
+        .feature-item:hover {
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .feature-icon {
+            font-size: 40px;
+            margin-bottom: 16px;
+        }
+
+        .feature-item h3 {
+            font-size: 20px;
+            margin-bottom: 8px;
+            color: #f2f3f5;
+        }
+
+        .feature-item p {
+            font-size: 14px;
+            color: #b5bac1;
+            line-height: 1.5;
+        }
+
+        @@media (max-width: 768px) {
+            .landing-title {
+                font-size: 32px;
+            }
+            .landing-subtitle {
+                font-size: 16px;
+            }
+            .landing-actions {
+                flex-direction: column;
+            }
+        }
+    </style>
+}

@@ -147,7 +147,7 @@
             const fd = new FormData();
             fd.append('serverId', serverId);
             fd.append('name', name);
-            fetch('/Server/CreateCategory', { method: 'POST', body: fd })
+            fetch('/Channel/CreateCategory', { method: 'POST', body: fd })
                 .then(r => {
                     if (r.ok) loadServer(serverId);
                 });
@@ -161,7 +161,7 @@
             fd.append('serverId', serverId);
             fd.append('name', name);
             if (categoryId) fd.append('categoryId', categoryId);
-            fetch('/Server/CreateChannel', { method: 'POST', body: fd })
+            fetch('/Channel/CreateChannel', { method: 'POST', body: fd })
                 .then(r => {
                     if (r.ok) loadServer(serverId);
                 });

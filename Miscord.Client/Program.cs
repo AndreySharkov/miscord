@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Miscord.Data;
 using Miscord.Data.Models;
-using Miscord.Client.Services;
+using Miscord.Services;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,6 +12,10 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddSignalR();
 builder.Services.AddScoped<PermissionHelper>();
 builder.Services.AddSingleton<IPresenceTracker, PresenceTracker>();
+builder.Services.AddScoped<IServerService, ServerService>();
+builder.Services.AddScoped<IChannelService, ChannelService>();
+builder.Services.AddScoped<IMemberService, MemberService>();
+builder.Services.AddScoped<IRoleService, RoleService>();
 
 // 1. Get the connection string from appsettings.json
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 

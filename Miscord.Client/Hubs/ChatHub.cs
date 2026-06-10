@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
 using Miscord.Data;
 using Miscord.Data.Models;
-using Miscord.Client.Services;
+using Miscord.Services;
 
 namespace Miscord.Client.Hubs
 {

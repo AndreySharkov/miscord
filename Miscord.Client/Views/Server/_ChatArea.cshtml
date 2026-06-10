@@ -160,7 +160,7 @@
                             <div class="msg-attachment">
                                 @if (msg.AttachmentContentType != null && msg.AttachmentContentType.StartsWith("image/"))
                                 {
-                                    <img src="/Server/GetAttachment?messageId=@msg.Id" class="attachment-image" alt="@msg.AttachmentFileName" loading="lazy" />
+                                    <img src="/Channel/GetAttachment?messageId=@msg.Id" class="attachment-image" alt="@msg.AttachmentFileName" loading="lazy" />
                                 }
                                 else
                                 {
@@ -170,10 +170,10 @@
                                             <polyline points="14 2 14 8 20 8" />
                                         </svg>
                                         <div class="attachment-file-info">
-                                            <a href="/Server/GetAttachment?messageId=@msg.Id" class="attachment-file-link" target="_blank">@msg.AttachmentFileName</a>
+                                            <a href="/Channel/GetAttachment?messageId=@msg.Id" class="attachment-file-link" target="_blank">@msg.AttachmentFileName</a>
                                             <span class="attachment-file-size">Attachment</span>
                                         </div>
-                                        <a href="/Server/GetAttachment?messageId=@msg.Id" class="attachment-download-btn" download="@msg.AttachmentFileName" title="Download">
+                                        <a href="/Channel/GetAttachment?messageId=@msg.Id" class="attachment-download-btn" download="@msg.AttachmentFileName" title="Download">
                                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
                                             </svg>
@@ -202,7 +202,7 @@
                             <div class="msg-attachment">
                                 @if (msg.AttachmentContentType != null && msg.AttachmentContentType.StartsWith("image/"))
                                 {
-                                    <img src="/Server/GetAttachment?messageId=@msg.Id" class="attachment-image" alt="@msg.AttachmentFileName" loading="lazy" />
+                                    <img src="/Channel/GetAttachment?messageId=@msg.Id" class="attachment-image" alt="@msg.AttachmentFileName" loading="lazy" />
                                 }
                                 else
                                 {
@@ -212,10 +212,10 @@
                                             <polyline points="14 2 14 8 20 8" />
                                         </svg>
                                         <div class="attachment-file-info">
-                                            <a href="/Server/GetAttachment?messageId=@msg.Id" class="attachment-file-link" target="_blank">@msg.AttachmentFileName</a>
+                                            <a href="/Channel/GetAttachment?messageId=@msg.Id" class="attachment-file-link" target="_blank">@msg.AttachmentFileName</a>
                                             <span class="attachment-file-size">Attachment</span>
                                         </div>
-                                        <a href="/Server/GetAttachment?messageId=@msg.Id" class="attachment-download-btn" download="@msg.AttachmentFileName" title="Download">
+                                        <a href="/Channel/GetAttachment?messageId=@msg.Id" class="attachment-download-btn" download="@msg.AttachmentFileName" title="Download">
                                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
                                             </svg>
@@ -285,5 +285,5 @@
     </div>
 </div>
     </div> <!-- Close chat-main-area -->
-    <partial name="_MembersSidebar" model="Model.Server" />
+    <partial name="~/Views/Server/_MembersSidebar.cshtml" model="Model.Server" />
 </div> <!-- Close main-row-container -->

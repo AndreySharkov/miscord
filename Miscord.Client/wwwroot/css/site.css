@@ -999,6 +999,9 @@ body {
     justify-content: center;
     background: #313338;
     padding: 20px;
+    background-image: url('https://discord.com/assets/f9a27b4030a6a5115621e24696014e4c.png'); /* Discord-like background */
+    background-size: cover;
+    background-position: center;
 }
 
 .auth-container {
@@ -1021,14 +1024,14 @@ body {
 }
 
 .auth-subtitle {
-    color: #80848e;
+    color: #b5bac1;
     text-align: center;
     font-size: 16px;
     margin: 0 0 20px;
     line-height: 1.5;
 }
 
-.form-group { margin-bottom: 16px; }
+.form-group { margin-bottom: 20px; }
 
 .form-group label {
     display: block;
@@ -1043,7 +1046,7 @@ body {
 .form-control-discord {
     width: 100%;
     background: #1e1f22;
-    border: 1px solid #1e1f22;
+    border: 1px solid transparent;
     padding: 10px;
     color: #dbdee1;
     border-radius: 3px;
@@ -1059,7 +1062,7 @@ body {
     background: #5865f2;
     color: #fff;
     border: none;
-    padding: 10px;
+    padding: 12px;
     border-radius: 3px;
     font-size: 16px;
     font-weight: 500;
@@ -1069,6 +1072,28 @@ body {
     font-family: inherit;
 }
 .btn-discord:hover { background: #4752c4; }
+
+.auth-link-text {
+    font-size: 14px;
+    color: #949ba4;
+    margin-top: 12px;
+}
+
+.auth-link {
+    color: #00a8fc;
+    text-decoration: none;
+}
+
+.auth-link:hover {
+    text-decoration: underline;
+}
+
+.text-danger {
+    color: #fa777c;
+    font-size: 12px;
+    font-weight: 500;
+    margin-top: 4px;
+}
 
 /* ─── Empty / placeholder states ─────────────────────────── */
 .empty-main {

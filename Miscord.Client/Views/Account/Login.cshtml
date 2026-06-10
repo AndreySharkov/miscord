@@ -1,42 +1,35 @@
 @model Miscord.Client.Models.LoginViewModel
 
 @{
-    ViewData["Title"] = "Log in";
+    ViewData["Title"] = "Log In";
 }
 
-<div class="row justify-content-center mt-5">
-    <div class="col-md-4">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <h2 class="text-center mb-4">Log in to Miscord</h2>
+<div class="auth-container">
+    <h2>Welcome back!</h2>
+    <p class="auth-subtitle">We're so excited to see you again!</p>
 
-                <form asp-controller="Account" asp-action="Login" method="post">
-                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+    <form asp-controller="Account" asp-action="Login" method="post">
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
-                    <div class="form-group mb-3">
-                        <label asp-for="Email" class="form-label"></label>
-                        <input asp-for="Email" class="form-control" placeholder="name@example.com" />
-                        <span asp-validation-for="Email" class="text-danger"></span>
-                    </div>
-
-                    <div class="form-group mb-3">
-                        <label asp-for="Password" class="form-label"></label>
-                        <input asp-for="Password" class="form-control" placeholder="••••••••" />
-                        <span asp-validation-for="Password" class="text-danger"></span>
-                    </div>
-
-                    <div class="form-group form-check mb-3">
-                        <input asp-for="RememberMe" class="form-check-input" />
-                        <label asp-for="RememberMe" class="form-check-label"></label>
-                    </div>
-
-                    <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary btn-lg">Log in</button>
-                    </div>
-                </form>
-            </div>
+        <div class="form-group">
+            <label asp-for="Email">Email or Phone Number</label>
+            <input asp-for="Email" class="form-control-discord" autocomplete="email" />
+            <span asp-validation-for="Email" class="text-danger"></span>
         </div>
-    </div>
+
+        <div class="form-group">
+            <label asp-for="Password">Password</label>
+            <input asp-for="Password" type="password" class="form-control-discord" autocomplete="current-password" />
+            <span asp-validation-for="Password" class="text-danger"></span>
+            <a href="#" class="auth-link" style="font-size: 12px; display: block; margin-top: 8px;">Forgot your password?</a>
+        </div>
+
+        <button type="submit" class="btn-discord">Log In</button>
+
+        <p class="auth-link-text">
+            Need an account? <a asp-action="Register" class="auth-link">Register</a>
+        </p>
+    </form>
 </div>
 
 @section Scripts {

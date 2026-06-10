@@ -89,7 +89,7 @@ function appendMessage(user, message, pfp, messageId, attachmentFileName, attach
         if (attachmentContentType && attachmentContentType.startsWith('image/')) {
             attachmentHtml = `
                 <div class="msg-attachment">
-                    <img src="/Server/GetAttachment?messageId=${messageId}" class="attachment-image" alt="${escapeHtml(attachmentFileName)}" loading="lazy" />
+                    <img src="/Channel/GetAttachment?messageId=${messageId}" class="attachment-image" alt="${escapeHtml(attachmentFileName)}" loading="lazy" />
                 </div>`;
         } else {
             attachmentHtml = `
@@ -100,7 +100,7 @@ function appendMessage(user, message, pfp, messageId, attachmentFileName, attach
                             <polyline points="14 2 14 8 20 8" />
                         </svg>
                         <div class="attachment-file-info">
-                            <a href="/Server/GetAttachment?messageId=${messageId}" class="attachment-file-link" target="_blank">${escapeHtml(attachmentFileName)}</a>
+                            <a href="/Channel/GetAttachment?messageId=${messageId}" class="attachment-file-link" target="_blank">${escapeHtml(attachmentFileName)}</a>
                             <span class="attachment-file-size">Attachment</span>
                         </div>
                     </div>
@@ -254,11 +254,10 @@ connection.on('ReceiveMessage', function (user, message, channelId, pfp, message
                     let attachmentHtml = `
                         <div class="msg-attachment">
                             ${attachmentContentType && attachmentContentType.startsWith('image/') 
-                                ? `<img src="/Server/GetAttachment?messageId=${messageId}" class="attachment-image" alt="${escapeHtml(attachmentFileName)}" loading="lazy" />`
+                                ? `<img src="/Channel/GetAttachment?messageId=${messageId}" class="attachment-image" alt="${escapeHtml(attachmentFileName)}" loading="lazy" />`
                                 : `<div class="attachment-file-box">
                                     <svg class="file-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
                                     <div class="attachment-file-info">
-                                        <a href="/Server/GetAttachment?messageId=${messageId}" class="attachment-file-link" target="_blank">${escapeHtml(attachmentFileName)}</a>
                                         <span class="attachment-file-size">Attachment</span>
                                     </div>
                                    </div>`
@@ -353,7 +352,7 @@ function loadChannel(channelId) {
     const rb = document.getElementById('reply-preview-bar');
     if (rb) rb.style.display = 'none';
 
-    fetch('/Server/GetChat?channelId=' + channelId)
+    fetch('/Channel/GetChat?channelId=' + channelId)
         .then(r => r.text())
         .then(html => {
             const main = document.querySelector('.main-content');
@@ -688,7 +687,7 @@ function setupChatInput(channelId) {
                 if (selectedFile) fd.append('attachment', selectedFile);
                 if (stagedReplyToId) fd.append('parentMessageId', stagedReplyToId);
 
-                fetch('/Server/PostMessage', { method: 'POST', body: fd }).then(r => r.json()).then(() => {
+                fetch('/Channel/PostMessage', { method: 'POST', body: fd }).then(r => r.json()).then(() => {
                     selectedFile = null; stagedReplyToId = null;
                     if (uploadPreviewArea) uploadPreviewArea.style.display = 'none';
                     const rpb = document.getElementById('reply-preview-bar');
@@ -774,7 +773,7 @@ function showQuickReactions(id, btn) {
 
 function toggleReaction(id, emoji) {
     const fd = new FormData(); fd.append('messageId', id); fd.append('emoji', emoji);
-    fetch('/Server/ToggleReaction', { method: 'POST', body: fd });
+    fetch('/Channel/ToggleReaction', { method: 'POST', body: fd });
 }
 
 function updateReactionInUI(id, emoji, count, has) {

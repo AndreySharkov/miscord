@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Miscord.Data;
 using Miscord.Data.Models;
 
-namespace Miscord.Client.Services
+namespace Miscord.Services
 {
     public class PermissionHelper
     {
