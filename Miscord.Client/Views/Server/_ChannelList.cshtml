@@ -142,29 +142,33 @@
     });
     
     function openCreateCategoryModal(serverId) {
-        const name = prompt("Enter category name:");
-        if (name) {
-            const fd = new FormData();
-            fd.append('serverId', serverId);
-            fd.append('name', name);
-            fetch('/Channel/CreateCategory', { method: 'POST', body: fd })
-                .then(r => {
-                    if (r.ok) loadServer(serverId);
-                });
-        }
+        showDiscordPrompt("Create Category", "Enter a name for your new category.", "CATEGORY NAME")
+            .then(name => {
+                if (name) {
+                    const fd = new FormData();
+                    fd.append('serverId', serverId);
+                    fd.append('name', name);
+                    fetch('/Channel/CreateCategory', { method: 'POST', body: fd })
+                        .then(r => {
+                            if (r.ok) loadServer(serverId);
+                        });
+                }
+            });
     }
     
     function openCreateChannelModal(serverId, categoryId) {
-        const name = prompt("Enter channel name:");
-        if (name) {
-            const fd = new FormData();
-            fd.append('serverId', serverId);
-            fd.append('name', name);
-            if (categoryId) fd.append('categoryId', categoryId);
-            fetch('/Channel/CreateChannel', { method: 'POST', body: fd })
-                .then(r => {
-                    if (r.ok) loadServer(serverId);
-                });
-        }
+        showDiscordPrompt("Create Channel", "Enter a name for your new channel.", "CHANNEL NAME")
+            .then(name => {
+                if (name) {
+                    const fd = new FormData();
+                    fd.append('serverId', serverId);
+                    fd.append('name', name);
+                    if (categoryId) fd.append('categoryId', categoryId);
+                    fetch('/Channel/CreateChannel', { method: 'POST', body: fd })
+                        .then(r => {
+                            if (r.ok) loadServer(serverId);
+                        });
+                }
+            });
     }
 </script>

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.ResponseCompression;
 using Miscord.Data;
 using Miscord.Data.Models;
 using Miscord.Services;
@@ -16,6 +17,13 @@ builder.Services.AddScoped<IServerService, ServerService>();
 builder.Services.AddScoped<IChannelService, ChannelService>();
 builder.Services.AddScoped<IMemberService, MemberService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
+
+// Response compression for faster content delivery
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes;
+});
 
 // 1. Get the connection string from appsettings.json
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
@@ -59,6 +67,7 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseResponseCompression();
 app.UseStaticFiles();
 app.UseRouting();
 

@@ -47,22 +47,20 @@ namespace Miscord.Client.Controllers
                 Name     = channel.Name,
                 Messages = messages.Select(m => new ChatMessageViewModel
                 {
-                    Id                         = m.Id,
-                    Content                    = m.Content,
-                    Timestamp                  = m.Timestamp,
-                    AuthorId                   = m.AuthorId,
-                    AuthorDisplayName          = m.Author.Nickname ?? m.Author.UserName,
-                    AuthorHasProfilePicture    = m.Author.ProfilePictureData != null,
-                    HasAttachment              = m.AttachmentData != null,
-                    AttachmentFileName         = m.AttachmentFileName,
-                    AttachmentContentType      = m.AttachmentContentType,
-                    ReplyToMessageId           = m.ReplyToMessageId,
-                    ParentContent              = m.ParentMessage != null ? m.ParentMessage.Content : null,
-                    ParentAuthorId             = m.ParentMessage != null ? m.ParentMessage.AuthorId : null,
-                    ParentAuthorDisplayName    = m.ParentMessage != null
-                                                    ? (m.ParentMessage.Author.Nickname ?? m.ParentMessage.Author.UserName)
-                                                    : null,
-                    ParentAuthorHasProfilePicture = m.ParentMessage != null && m.ParentMessage.Author.ProfilePictureData != null,
+                    Id                           = m.Id,
+                    Content                      = m.Content,
+                    Timestamp                    = m.Timestamp,
+                    AuthorId                     = m.AuthorId,
+                    AuthorDisplayName            = m.AuthorNickname ?? m.AuthorUserName,
+                    AuthorHasProfilePicture      = m.AuthorHasProfilePicture,
+                    HasAttachment                = m.HasAttachment,
+                    AttachmentFileName           = m.AttachmentFileName,
+                    AttachmentContentType        = m.AttachmentContentType,
+                    ReplyToMessageId             = m.ReplyToMessageId,
+                    ParentContent                = m.ParentContent,
+                    ParentAuthorId               = m.ParentAuthorId,
+                    ParentAuthorDisplayName      = m.ParentAuthorNickname ?? m.ParentAuthorUserName,
+                    ParentAuthorHasProfilePicture = m.ParentAuthorHasProfilePicture,
                 }).ToList(),
                 Server   = channel.Server
             };
@@ -155,7 +153,13 @@ namespace Miscord.Client.Controllers
             var result = await _channelService.GetAttachmentAsync(messageId);
             if (result == null) return NotFound();
 
+            // ETag for efficient 304 Not Modified responses
+            var etag = $"\"{Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(result.Value.data)[..8])}\"";
+            if (Request.Headers.IfNoneMatch.ToString() == etag)
+                return StatusCode(304);
+
             Response.Headers["Cache-Control"] = "public, max-age=604800, immutable";
+            Response.Headers["ETag"] = etag;
             return File(result.Value.data, result.Value.contentType, result.Value.fileName);
         }
 

@@ -12,7 +12,7 @@ namespace Miscord.Services
     {
         Task<Channel?> GetChannelByIdAsync(int channelId);
         Task<Channel?> GetChannelForChatAsync(int channelId);
-        Task<List<Message>> GetChatMessagesAsync(int channelId);
+        Task<List<ChatMessageDto>> GetChatMessagesAsync(int channelId);
         Task CreateCategoryAsync(int serverId, string name);
         Task CreateChannelAsync(int serverId, string name, int? categoryId);
         Task<Message> CreateMessageAsync(int channelId, string userId, string content, byte[]? attachmentData, string? fileName, string? contentType, int? parentMessageId);
@@ -32,18 +32,13 @@ namespace Miscord.Services
         public async Task<Channel?> GetChannelByIdAsync(int channelId)
         {
             return await _context.Channels
-                .Include(c => c.Server)
-                    .ThenInclude(s => s.ChannelCategories.OrderBy(cc => cc.Position))
-                .Include(c => c.Server)
-                    .ThenInclude(s => s.Members)
-                        .ThenInclude(m => m.User)
-                .Include(c => c.Server)
-                    .ThenInclude(s => s.Members)
-                        .ThenInclude(m => m.MemberRoles)
-                            .ThenInclude(mr => mr.ServerRole)
-                .Include(c => c.Server)
-                    .ThenInclude(s => s.Roles.OrderByDescending(r => r.Position))
                 .AsNoTracking()
+                .Select(c => new Channel
+                {
+                    Id = c.Id,
+                    ServerId = c.ServerId,
+                    Name = c.Name
+                })
                 .FirstOrDefaultAsync(c => c.Id == channelId);
         }
 
@@ -67,16 +62,32 @@ namespace Miscord.Services
                 .FirstOrDefaultAsync(c => c.Id == channelId);
         }
 
-        public async Task<List<Message>> GetChatMessagesAsync(int channelId)
+        public async Task<List<ChatMessageDto>> GetChatMessagesAsync(int channelId)
         {
             var messages = await _context.Messages
-                .Include(m => m.Author)
-                .Include(m => m.ParentMessage)
-                    .ThenInclude(pm => pm.Author)
                 .AsNoTracking()
                 .Where(m => m.ChannelId == channelId)
                 .OrderByDescending(m => m.Timestamp)
                 .Take(100)
+                .Select(m => new ChatMessageDto
+                {
+                    Id                            = m.Id,
+                    Content                       = m.Content,
+                    Timestamp                     = m.Timestamp,
+                    AuthorId                      = m.AuthorId,
+                    AuthorNickname                = m.Author.Nickname,
+                    AuthorUserName                = m.Author.UserName,
+                    AuthorHasProfilePicture       = m.Author.ProfilePictureData != null,
+                    HasAttachment                 = m.AttachmentData != null,
+                    AttachmentFileName            = m.AttachmentFileName,
+                    AttachmentContentType         = m.AttachmentContentType,
+                    ReplyToMessageId              = m.ReplyToMessageId,
+                    ParentContent                 = m.ParentMessage != null ? m.ParentMessage.Content : null,
+                    ParentAuthorId                = m.ParentMessage != null ? m.ParentMessage.AuthorId : null,
+                    ParentAuthorNickname          = m.ParentMessage != null ? m.ParentMessage.Author.Nickname : null,
+                    ParentAuthorUserName          = m.ParentMessage != null ? m.ParentMessage.Author.UserName : null,
+                    ParentAuthorHasProfilePicture = m.ParentMessage != null && m.ParentMessage.Author.ProfilePictureData != null,
+                })
                 .ToListAsync();
 
             messages.Reverse();

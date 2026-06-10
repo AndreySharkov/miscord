@@ -122,6 +122,37 @@
         <partial name="~/Views/Server/_CreateServerModal.cshtml" />
         <partial name="~/Views/Server/_ServerSettingsModal.cshtml" />
         <partial name="~/Views/Shared/_UserSettingsModal.cshtml" />
+
+        <!-- Reusable Discord-style Prompt Modal -->
+        <div id="discord-prompt-modal" class="cs-backdrop" role="dialog" aria-modal="true">
+            <div class="cs-modal" style="max-width: 440px; padding: 24px;">
+                <div class="cs-header" style="text-align: left; padding: 0 0 16px;">
+                    <h2 class="cs-title" id="dpm-title">Prompt</h2>
+                    <p class="cs-subtitle" id="dpm-subtitle"></p>
+                </div>
+                <div class="cs-field">
+                    <label class="cs-label" id="dpm-label"></label>
+                    <input type="text" id="dpm-input" class="cs-input" autocomplete="off" />
+                </div>
+                <div class="cs-actions" style="margin-top: 24px; justify-content: flex-end; gap: 8px;">
+                    <button class="cs-btn cs-btn--ghost" onclick="closeDiscordPrompt(false)">Cancel</button>
+                    <button class="cs-btn cs-btn--primary" id="dpm-confirm-btn" onclick="closeDiscordPrompt(true)">Done</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reusable Discord-style Alert Modal -->
+        <div id="discord-alert-modal" class="cs-backdrop" role="dialog" aria-modal="true">
+            <div class="cs-modal" style="max-width: 440px; padding: 24px;">
+                <div class="cs-header" style="text-align: left; padding: 0 0 16px;">
+                    <h2 class="cs-title" id="dam-title">Notice</h2>
+                </div>
+                <p class="cs-subtitle" id="dam-message" style="margin-bottom: 24px;"></p>
+                <div class="cs-actions" style="justify-content: flex-end;">
+                    <button class="cs-btn cs-btn--primary" onclick="closeDiscordAlert()">Okay</button>
+                </div>
+            </div>
+        </div>
     }
     else
     {

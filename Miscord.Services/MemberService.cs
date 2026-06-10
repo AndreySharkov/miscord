@@ -29,10 +29,35 @@ namespace Miscord.Services
         public async Task<List<ServerMember>> GetMembersAsync(int serverId)
         {
             return await _context.ServerMembers
-                .Include(sm => sm.User)
-                .Include(sm => sm.MemberRoles)
-                    .ThenInclude(mr => mr.ServerRole)
+                .AsNoTracking()
                 .Where(sm => sm.ServerId == serverId)
+                .Select(sm => new ServerMember
+                {
+                    Id = sm.Id,
+                    ServerId = sm.ServerId,
+                    UserId = sm.UserId,
+                    Nickname = sm.Nickname,
+                    JoinedAt = sm.JoinedAt,
+                    User = new ApplicationUser
+                    {
+                        Id = sm.User.Id,
+                        UserName = sm.User.UserName,
+                        Nickname = sm.User.Nickname,
+                        ProfilePictureData = sm.User.ProfilePictureData != null ? new byte[0] : null
+                    },
+                    MemberRoles = sm.MemberRoles.Select(mr => new ServerMemberRole
+                    {
+                        ServerMemberId = mr.ServerMemberId,
+                        ServerRoleId = mr.ServerRoleId,
+                        ServerRole = new ServerRole
+                        {
+                            Id = mr.ServerRole.Id,
+                            Name = mr.ServerRole.Name,
+                            Color = mr.ServerRole.Color,
+                            Position = mr.ServerRole.Position
+                        }
+                    }).ToList()
+                })
                 .ToListAsync();
         }
 

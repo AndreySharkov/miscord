@@ -39,16 +39,84 @@ namespace Miscord.Services
         public async Task<Server?> GetServerDetailsAsync(int serverId)
         {
             return await _context.Servers
-                .Include(s => s.ChannelCategories.OrderBy(cc => cc.Position))
-                    .ThenInclude(cc => cc.Channels.OrderBy(c => c.Position))
-                .Include(s => s.Channels.Where(c => c.ChannelCategoryId == null).OrderBy(c => c.Position))
-                .Include(s => s.Members)
-                    .ThenInclude(m => m.User)
-                .Include(s => s.Members)
-                    .ThenInclude(m => m.MemberRoles)
-                        .ThenInclude(mr => mr.ServerRole)
-                .Include(s => s.Roles.OrderByDescending(r => r.Position))
-                .FirstOrDefaultAsync(s => s.Id == serverId && !s.IsDeleted);
+                .AsNoTracking()
+                .Where(s => s.Id == serverId && !s.IsDeleted)
+                .Select(s => new Server
+                {
+                    Id = s.Id,
+                    Name = s.Name,
+                    OwnerId = s.OwnerId,
+                    IconData = s.IconData != null ? new byte[0] : null,
+                    ChannelCategories = s.ChannelCategories
+                        .OrderBy(cc => cc.Position)
+                        .Select(cc => new ChannelCategory
+                        {
+                            Id = cc.Id,
+                            ServerId = cc.ServerId,
+                            Name = cc.Name,
+                            Position = cc.Position,
+                            Channels = cc.Channels
+                                .OrderBy(c => c.Position)
+                                .Select(c => new Channel
+                                {
+                                    Id = c.Id,
+                                    ServerId = c.ServerId,
+                                    Name = c.Name,
+                                    Position = c.Position,
+                                    ChannelCategoryId = c.ChannelCategoryId
+                                }).ToList()
+                        }).ToList(),
+                    Channels = s.Channels
+                        .Where(c => c.ChannelCategoryId == null)
+                        .OrderBy(c => c.Position)
+                        .Select(c => new Channel
+                        {
+                            Id = c.Id,
+                            ServerId = c.ServerId,
+                            Name = c.Name,
+                            Position = c.Position,
+                            ChannelCategoryId = c.ChannelCategoryId
+                        }).ToList(),
+                    Roles = s.Roles
+                        .OrderByDescending(r => r.Position)
+                        .Select(r => new ServerRole
+                        {
+                            Id = r.Id,
+                            ServerId = r.ServerId,
+                            Name = r.Name,
+                            Color = r.Color,
+                            Position = r.Position,
+                            Permissions = r.Permissions
+                        }).ToList(),
+                    Members = s.Members.Select(m => new ServerMember
+                    {
+                        Id = m.Id,
+                        ServerId = m.ServerId,
+                        UserId = m.UserId,
+                        Nickname = m.Nickname,
+                        JoinedAt = m.JoinedAt,
+                        User = new ApplicationUser
+                        {
+                            Id = m.User.Id,
+                            UserName = m.User.UserName,
+                            Nickname = m.User.Nickname,
+                            ProfilePictureData = m.User.ProfilePictureData != null ? new byte[0] : null
+                        },
+                        MemberRoles = m.MemberRoles.Select(mr => new ServerMemberRole
+                        {
+                            ServerMemberId = mr.ServerMemberId,
+                            ServerRoleId = mr.ServerRoleId,
+                            ServerRole = new ServerRole
+                            {
+                                Id = mr.ServerRole.Id,
+                                Name = mr.ServerRole.Name,
+                                Color = mr.ServerRole.Color,
+                                Position = mr.ServerRole.Position
+                            }
+                        }).ToList()
+                    }).ToList()
+                })
+                .FirstOrDefaultAsync();
         }
 
         public async Task<Server?> GetServerByIdAsync(int serverId)

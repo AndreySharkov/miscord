@@ -162,7 +162,13 @@ namespace Miscord.Client.Controllers
             var user = await _context.Users.AsNoTracking().Select(u => new { u.Id, u.ProfilePictureData }).FirstOrDefaultAsync(u => u.Id == userId);
             if (user == null || user.ProfilePictureData == null) return NotFound();
 
-            Response.Headers["Cache-Control"] = "public, max-age=3600";
+            // ETag for efficient 304 responses
+            var etag = $"\"{Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(user.ProfilePictureData)[..8])}\"";
+            if (Request.Headers.IfNoneMatch.ToString() == etag)
+                return StatusCode(304);
+
+            Response.Headers["Cache-Control"] = "public, max-age=86400, immutable";
+            Response.Headers["ETag"] = etag;
             return File(user.ProfilePictureData, "image/png");
         }
 

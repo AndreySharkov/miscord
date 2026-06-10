@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -10,37 +11,55 @@ namespace Miscord.Services
     {
         private readonly AppDbContext _context;
 
+        private readonly Dictionary<(string, int), long> _permissionsCache = new();
+        private readonly Dictionary<int, string?> _ownerCache = new();
+
         public PermissionHelper(AppDbContext context)
         {
             _context = context;
         }
 
-        public async Task<bool> HasPermission(string userId, int serverId, ServerPermissions permission)
+        public async Task<bool> HasPermission(string? userId, int serverId, ServerPermissions permission)
         {
-            var server = await _context.Servers.FindAsync(serverId);
-            if (server == null) return false;
+            if (string.IsNullOrEmpty(userId)) return false;
 
-            // Owner always has all permissions
-            if (server.OwnerId == userId) return true;
-
-            var member = await _context.ServerMembers
-                .Include(sm => sm.MemberRoles)
-                    .ThenInclude(mr => mr.ServerRole)
-                .FirstOrDefaultAsync(sm => sm.ServerId == serverId && sm.UserId == userId);
-
-            if (member == null) return false;
-
-            // Check if any role has the permission
-            foreach (var memberRole in member.MemberRoles)
+            // Cache server owner lookup
+            if (!_ownerCache.TryGetValue(serverId, out var ownerId))
             {
-                if ((memberRole.ServerRole.Permissions & (long)ServerPermissions.Administrator) != 0)
-                    return true;
-
-                if ((memberRole.ServerRole.Permissions & (long)permission) != 0)
-                    return true;
+                ownerId = await _context.Servers
+                    .AsNoTracking()
+                    .Where(s => s.Id == serverId)
+                    .Select(s => s.OwnerId)
+                    .FirstOrDefaultAsync();
+                _ownerCache[serverId] = ownerId;
             }
 
-            return false;
+            if (ownerId == null) return false;
+            if (ownerId == userId) return true;
+
+            // Cache combined permissions lookup for the user
+            var cacheKey = (userId, serverId);
+            if (!_permissionsCache.TryGetValue(cacheKey, out var userPermissions))
+            {
+                var rolesPermissions = await _context.ServerMembers
+                    .AsNoTracking()
+                    .Where(sm => sm.ServerId == serverId && sm.UserId == userId)
+                    .SelectMany(sm => sm.MemberRoles.Select(mr => mr.ServerRole.Permissions))
+                    .ToListAsync();
+
+                userPermissions = 0;
+                foreach (var perm in rolesPermissions)
+                {
+                    userPermissions |= perm;
+                }
+                _permissionsCache[cacheKey] = userPermissions;
+            }
+
+            // Check if user has Administrator or the specified permission
+            if ((userPermissions & (long)ServerPermissions.Administrator) != 0)
+                return true;
+
+            return (userPermissions & (long)permission) != 0;
         }
     }
 }

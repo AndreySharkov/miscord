@@ -1132,10 +1132,27 @@ body {
     border-radius: 4px;
     cursor: pointer;
     box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-    transition: transform 0.15s ease;
+    transition: transform 0.15s ease, opacity 0.3s ease;
+    /* Reserve space & skeleton loader while loading */
+    min-height: 80px;
+    min-width: 120px;
+    background: linear-gradient(90deg, #2b2d31 25%, #32353b 50%, #2b2d31 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    object-fit: contain;
+}
+.attachment-image.loaded {
+    min-height: unset;
+    min-width: unset;
+    background: none;
+    animation: none;
 }
 .attachment-image:hover {
     transform: scale(1.01);
+}
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
 }
 
 .attachment-file-box {

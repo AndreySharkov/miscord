@@ -1,3 +1,75 @@
+/* ── Image load optimization ───────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+    // Handle images that are already in the DOM
+    document.querySelectorAll('img.attachment-image').forEach(img => {
+        if (img.complete && img.naturalWidth > 0) {
+            img.classList.add('loaded');
+        } else {
+            img.addEventListener('load', () => img.classList.add('loaded'), { once: true });
+            img.addEventListener('error', () => img.classList.add('loaded'), { once: true });
+        }
+    });
+
+    // Use MutationObserver to handle dynamically added images (from SignalR)
+    const observer = new MutationObserver(mutations => {
+        for (const mutation of mutations) {
+            for (const node of mutation.addedNodes) {
+                if (node.nodeType !== 1) continue;
+                const imgs = node.matches?.('img.attachment-image') 
+                    ? [node] 
+                    : (node.querySelectorAll?.('img.attachment-image') || []);
+                for (const img of imgs) {
+                    if (img.complete && img.naturalWidth > 0) {
+                        img.classList.add('loaded');
+                    } else {
+                        img.addEventListener('load', () => img.classList.add('loaded'), { once: true });
+                        img.addEventListener('error', () => img.classList.add('loaded'), { once: true });
+                    }
+                }
+            }
+        }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+});
+
+// ─── Custom Modal System ─────────────────────────
+let activePromptResolve = null;
+
+function showDiscordPrompt(title, subtitle, label, defaultValue = '') {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('discord-prompt-modal');
+        document.getElementById('dpm-title').innerText = title;
+        document.getElementById('dpm-subtitle').innerText = subtitle;
+        document.getElementById('dpm-label').innerText = label;
+        const input = document.getElementById('dpm-input');
+        input.value = defaultValue;
+        activePromptResolve = resolve;
+        modal.classList.add('open');
+        setTimeout(() => input.focus(), 100);
+    });
+}
+
+function closeDiscordPrompt(confirmed) {
+    const modal = document.getElementById('discord-prompt-modal');
+    const value = document.getElementById('dpm-input').value;
+    modal.classList.remove('open');
+    if (activePromptResolve) {
+        activePromptResolve(confirmed ? value : null);
+        activePromptResolve = null;
+    }
+}
+
+function showDiscordAlert(title, message) {
+    const modal = document.getElementById('discord-alert-modal');
+    document.getElementById('dam-title').innerText = title;
+    document.getElementById('dam-message').innerText = message;
+    modal.classList.add('open');
+}
+
+function closeDiscordAlert() {
+    document.getElementById('discord-alert-modal').classList.remove('open');
+}
+
 // ─── Username → stable avatar color ───────────────────────────────
 var AVATAR_COLORS = [
     '#e91e63','#9c27b0','#673ab7','#3f51b5',
@@ -282,7 +354,7 @@ connection.on('ReceiveMessage', function (user, message, channelId, pfp, message
 });
 
 connection.on('ReceiveError', function (error) {
-    alert('Error: ' + error);
+    showDiscordAlert('Error', error);
     const tempMsgs = document.querySelectorAll('.message-item[data-temp="true"]');
     if (tempMsgs.length > 0) tempMsgs[tempMsgs.length - 1].remove();
 });
@@ -881,7 +953,7 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const nameInput = document.getElementById('cs-server-name');
             if (!nameInput || !nameInput.value.trim()) {
-                alert('Please enter a server name.');
+                showDiscordAlert('Hold up!', 'Please enter a server name.');
                 return;
             }
 
@@ -902,7 +974,7 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .catch(err => {
                 console.error('Error creating server:', err);
-                alert('Failed to create server. Please check your inputs.');
+                showDiscordAlert('Error', 'Failed to create server. Please check your inputs.');
             });
         });
     }
@@ -1038,7 +1110,7 @@ function createNewRole() {
     const serverId = document.getElementById('ss-server-id').value;
     if (!serverId || serverId === "0") {
         console.error("No valid server ID found for role creation. ID:", serverId);
-        alert("Error: No server selected.");
+        showDiscordAlert('Error', "No server selected.");
         return;
     }
     const fd = new FormData();
@@ -1067,7 +1139,7 @@ function createNewRole() {
         })
         .catch(err => {
             console.error("Error creating role:", err);
-            alert("Error: " + err.message);
+            showDiscordAlert('Error', err.message);
         });
 }
 
@@ -1191,7 +1263,7 @@ function leaveServer() {
     const currentUserId = document.getElementById('current-user-id')?.value;
 
     if (ownerId === currentUserId) {
-        alert("Notice: As the owner, leaving this server will transfer ownership to the next most senior member.");
+        showDiscordAlert('Notice', "As the owner, leaving this server will transfer ownership to the next most senior member.");
     }
     
     if (confirm("Are you sure you want to leave this server?")) {
@@ -1210,7 +1282,7 @@ function openInviteModal() {
         generateNewInvite();
         modal.classList.add('open');
     } else {
-        alert('Please select a server first.');
+        showDiscordAlert('Error', 'Please select a server first.');
     }
     document.getElementById('server-dropdown-menu')?.classList.remove('open');
 }
@@ -1235,7 +1307,7 @@ function generateNewInvite() {
 }
 
 function closeInviteModal() { document.getElementById('invite-modal')?.classList.remove('open'); }
-function copyInviteLink() { const input = document.getElementById('invite-link-input'); input.select(); document.execCommand('copy'); alert('Copied!'); }
+function copyInviteLink() { const input = document.getElementById('invite-link-input'); input.select(); document.execCommand('copy'); showDiscordAlert('Copied!', 'The invite link has been copied to your clipboard.'); }
 
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('edit-role-form')?.addEventListener('submit', function(e) {
@@ -1245,7 +1317,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let permissions = 0n;
         document.querySelectorAll('.p-checkbox:checked').forEach(cb => permissions |= BigInt(cb.dataset.flag));
         fd.set('permissions', permissions.toString());
-        fetch('/Server/UpdateRole', { method: 'POST', body: fd }).then(r => { if (r.ok) { loadRoles(); alert('Updated!'); } });
+        fetch('/Server/UpdateRole', { method: 'POST', body: fd }).then(r => { if (r.ok) { loadRoles(); showDiscordAlert('Updated!', 'Role permissions have been saved.'); } });
     });
 
     document.getElementById('update-server-form')?.addEventListener('submit', function(e) {
