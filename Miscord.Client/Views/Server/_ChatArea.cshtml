@@ -54,8 +54,10 @@
     <span class="ch-header-topic">Welcome to #@Model.Name!</span>
 </div>
 
-<!-- Chat scroll area -->
-<div class="chat-container" id="messages-container">
+<div class="main-row-container">
+    <div class="chat-main-area">
+        <!-- Chat scroll area -->
+        <div class="chat-container" id="messages-container">
 
     <!-- Welcome banner (pushed to bottom by flex) -->
     <div style="flex:1"></div>
@@ -282,3 +284,6 @@
         </button>
     </div>
 </div>
+    </div> <!-- Close chat-main-area -->
+    <partial name="_MembersSidebar" model="Model.Server" />
+</div> <!-- Close main-row-container -->

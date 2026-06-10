@@ -47,6 +47,12 @@ namespace Miscord.Client.Controllers
                 .Include(s => s.ChannelCategories.OrderBy(cc => cc.Position))
                     .ThenInclude(cc => cc.Channels.OrderBy(c => c.Position))
                 .Include(s => s.Channels.Where(c => c.ChannelCategoryId == null).OrderBy(c => c.Position))
+                .Include(s => s.Members)
+                    .ThenInclude(m => m.User)
+                .Include(s => s.Members)
+                    .ThenInclude(m => m.MemberRoles)
+                        .ThenInclude(mr => mr.ServerRole)
+                .Include(s => s.Roles.OrderByDescending(r => r.Position))
                 .FirstOrDefaultAsync(s => s.Id == id);
 
             if (server == null)
@@ -64,9 +70,33 @@ namespace Miscord.Client.Controllers
             var hasManageChannels = await _permissionHelper.HasPermission(userId, id, ServerPermissions.ManageChannels);
             var hasManageServer = await _permissionHelper.HasPermission(userId, id, ServerPermissions.ManageServer);
             var hasManageRoles = await _permissionHelper.HasPermission(userId, id, ServerPermissions.ManageRoles);
+            var hasKickMembers = await _permissionHelper.HasPermission(userId, id, ServerPermissions.KickMembers);
+            var hasBanMembers = await _permissionHelper.HasPermission(userId, id, ServerPermissions.BanMembers);
+            var hasManageNicknames = await _permissionHelper.HasPermission(userId, id, ServerPermissions.ManageNicknames);
+
             ViewData["IsAdmin"] = hasManageChannels || hasManageServer || hasManageRoles;
+            ViewData["HasManageRoles"] = hasManageRoles;
+            ViewData["HasKickMembers"] = hasKickMembers;
+            ViewData["HasBanMembers"] = hasBanMembers;
+            ViewData["HasManageNicknames"] = hasManageNicknames;
             
             return View(server);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetMembersSidebar(int serverId)
+        {
+            var server = await _context.Servers
+                .Include(s => s.Members)
+                    .ThenInclude(m => m.User)
+                .Include(s => s.Members)
+                    .ThenInclude(m => m.MemberRoles)
+                        .ThenInclude(mr => mr.ServerRole)
+                .Include(s => s.Roles.OrderByDescending(r => r.Position))
+                .FirstOrDefaultAsync(s => s.Id == serverId);
+
+            if (server == null) return NotFound();
+            return PartialView("_MembersSidebar", server);
         }
 
         [HttpGet]
@@ -99,9 +129,19 @@ namespace Miscord.Client.Controllers
         public async Task<IActionResult> GetChat(int channelId)
         {
             var channel = await _context.Channels
+                .Include(c => c.Server)
+                    .ThenInclude(s => s.ChannelCategories.OrderBy(cc => cc.Position))
+                .Include(c => c.Server)
+                    .ThenInclude(s => s.Members)
+                        .ThenInclude(m => m.User)
+                .Include(c => c.Server)
+                    .ThenInclude(s => s.Members)
+                        .ThenInclude(m => m.MemberRoles)
+                            .ThenInclude(mr => mr.ServerRole)
+                .Include(c => c.Server)
+                    .ThenInclude(s => s.Roles.OrderByDescending(r => r.Position))
                 .AsNoTracking()
                 .Where(c => c.Id == channelId)
-                .Select(c => new { c.Name, c.ServerId })
                 .FirstOrDefaultAsync();
 
             if (channel == null)
@@ -142,6 +182,7 @@ namespace Miscord.Client.Controllers
                 Id       = channelId,
                 Name     = channel.Name,
                 Messages = messages,
+                Server   = channel.Server
             };
 
             return PartialView("_ChatArea", vm);
@@ -563,6 +604,72 @@ namespace Miscord.Client.Controllers
         }
 
         [HttpPost]
+        public async Task<IActionResult> KickMember([FromForm] int serverId, [FromForm] string userId)
+        {
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!await _permissionHelper.HasPermission(currentUserId, serverId, ServerPermissions.KickMembers))
+                return Unauthorized();
+
+            var server = await _context.Servers.FindAsync(serverId);
+            if (server == null) return NotFound();
+            if (server.OwnerId == userId) return BadRequest("Cannot kick the server owner.");
+
+            var member = await _context.ServerMembers.FirstOrDefaultAsync(sm => sm.ServerId == serverId && sm.UserId == userId);
+            if (member != null)
+            {
+                _context.ServerMembers.Remove(member);
+                await _context.SaveChangesAsync();
+            }
+
+            return Ok();
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> BanMember([FromForm] int serverId, [FromForm] string userId, [FromForm] string? reason)
+        {
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!await _permissionHelper.HasPermission(currentUserId, serverId, ServerPermissions.BanMembers))
+                return Unauthorized();
+
+            var server = await _context.Servers.FindAsync(serverId);
+            if (server == null) return NotFound();
+            if (server.OwnerId == userId) return BadRequest("Cannot ban the server owner.");
+
+            var member = await _context.ServerMembers.FirstOrDefaultAsync(sm => sm.ServerId == serverId && sm.UserId == userId);
+            if (member != null)
+            {
+                _context.ServerMembers.Remove(member);
+            }
+
+            if (!await _context.ServerBans.AnyAsync(b => b.ServerId == serverId && b.UserId == userId))
+            {
+                _context.ServerBans.Add(new ServerBan { ServerId = serverId, UserId = userId, Reason = reason });
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok();
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> UpdateNickname([FromForm] int serverId, [FromForm] string userId, [FromForm] string? nickname)
+        {
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            
+            bool canChangeOwn = currentUserId == userId && await _permissionHelper.HasPermission(currentUserId, serverId, ServerPermissions.ChangeNickname);
+            bool canManageOthers = await _permissionHelper.HasPermission(currentUserId, serverId, ServerPermissions.ManageNicknames);
+
+            if (!canChangeOwn && !canManageOthers)
+                return Unauthorized();
+
+            var member = await _context.ServerMembers.FirstOrDefaultAsync(sm => sm.ServerId == serverId && sm.UserId == userId);
+            if (member == null) return NotFound();
+
+            member.Nickname = string.IsNullOrWhiteSpace(nickname) ? null : nickname;
+            await _context.SaveChangesAsync();
+            return Ok();
+        }
+
+        [HttpPost]
         public async Task<IActionResult> DeleteServer(int serverId)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -650,6 +757,12 @@ namespace Miscord.Client.Controllers
             if (invite == null || invite.IsExpired)
             {
                 return NotFound("This invite link is invalid or has expired.");
+            }
+
+            var isBanned = await _context.ServerBans.AnyAsync(b => b.ServerId == invite.ServerId && b.UserId == userId);
+            if (isBanned)
+            {
+                return Unauthorized("You are banned from this server.");
             }
 
             var existingMember = await _context.ServerMembers.FirstOrDefaultAsync(sm => sm.ServerId == invite.ServerId && sm.UserId == userId);

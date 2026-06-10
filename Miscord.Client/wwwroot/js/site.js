@@ -357,8 +357,8 @@ function loadChannel(channelId) {
         .then(r => r.text())
         .then(html => {
             const main = document.querySelector('.main-content');
-            if (main) { 
-                main.innerHTML = html; 
+            if (main) {
+                main.innerHTML = html;
                 setupChatInput(channelId);
                 const container = document.getElementById('messages-container');
                 if (container) container.scrollTop = container.scrollHeight;
@@ -368,7 +368,209 @@ function loadChannel(channelId) {
     lastMsgUser = null; lastMsgTime = null;
 }
 
-// ─── Chat Input ────────────────────────────────────────────────────
+    // ─── Member Context Menu Logic ─────────────────────────────────────────
+    let currentMemberId = null;
+    let currentMemberName = null;
+    let currentServerIdForMember = null;
+
+// ─── UI Utility: Close all floating menus ─────────────────────────
+function closeAllMenus(exceptElement) {
+    // 1. Member context menu
+    const memberMenu = document.getElementById('member-context-menu');
+    if (memberMenu && memberMenu !== exceptElement) memberMenu.style.display = 'none';
+
+    // 2. Server dropdown
+    const serverMenu = document.getElementById('server-dropdown-menu');
+    const chevron = document.getElementById('header-chevron');
+    if (serverMenu && serverMenu !== exceptElement && serverMenu.classList.contains('open')) {
+        serverMenu.classList.remove('open');
+        if (chevron) chevron.style.transform = 'rotate(0deg)';
+    }
+
+    // 3. Role picker
+    const rolePicker = document.getElementById('member-role-picker');
+    if (rolePicker && rolePicker !== exceptElement) rolePicker.remove();
+
+    // 4. Quick reactions
+    const emojiPop = document.querySelector('.quick-emoji-popover');
+    if (emojiPop && emojiPop !== exceptElement) emojiPop.remove();
+}
+
+// Global click listener to close menus when clicking outside
+document.addEventListener('click', (e) => {
+    // Check if we clicked inside a menu or its trigger
+    const isMemberMenu = e.target.closest('#member-context-menu');
+    const isServerHeader = e.target.closest('.sidebar-header');
+    const isServerMenu = e.target.closest('#server-dropdown-menu');
+    const isRolePicker = e.target.closest('#member-role-picker');
+    const isEmojiPop = e.target.closest('.quick-emoji-popover');
+    const isAddRoleBtn = e.target.closest('.ss-add-role-btn');
+    const isReactionBtn = e.target.closest('.reaction-btn');
+
+    if (!isMemberMenu && !isServerHeader && !isServerMenu && !isRolePicker && !isEmojiPop && !isAddRoleBtn && !isReactionBtn) {
+        closeAllMenus();
+    }
+});
+
+function showMemberContextMenu(e, userId, displayName, serverId, isOwner) {
+    e.preventDefault();
+    closeAllMenus(); // Close others first
+    currentMemberId = userId;
+    currentMemberName = displayName;
+    currentServerIdForMember = serverId;
+
+    const menu = document.getElementById('member-context-menu');
+    if (!menu) return;
+
+    menu.style.display = 'block';
+    
+    // Use clientX/Y for fixed position
+    let x = e.clientX;
+    let y = e.clientY;
+    
+    const menuWidth = 188; 
+    const menuHeight = menu.offsetHeight || 200;
+
+    // Boundary checks: keep menu in viewport
+    if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 5;
+    if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - 5;
+    if (x < 5) x = 5;
+    if (y < 5) y = 5;
+
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+
+    const kickName = document.getElementById('mcm-kick-name');
+    if (kickName) kickName.innerText = displayName;
+    const banName = document.getElementById('mcm-ban-name');
+    if (banName) banName.innerText = displayName;
+
+    // Owner protection
+    const kickItem = document.getElementById('mcm-kick-item');
+    const banItem = document.getElementById('mcm-ban-item');
+    if (isOwner) {
+        if (kickItem) kickItem.style.display = 'none';
+        if (banItem) banItem.style.display = 'none';
+    } else {
+        if (kickItem) kickItem.style.display = 'flex';
+        if (banItem) banItem.style.display = 'flex';
+    }
+
+    // Populate roles submenu
+    populateRolesSubmenu(serverId, userId);
+}
+
+    function populateRolesSubmenu(serverId, userId) {
+    const submenu = document.getElementById('mcm-roles-submenu');
+    if (!submenu) return;
+    submenu.innerHTML = '<div class="mcm-item">Loading...</div>';
+
+    fetch('/Server/GetRoles?serverId=' + serverId)
+        .then(r => r.json())
+        .then(roles => {
+            fetch('/Server/GetMembers?serverId=' + serverId)
+                .then(r => r.json())
+                .then(members => {
+                    const member = members.find(m => m.userId === userId);
+                    const memberRoleIds = member ? member.roles.map(r => r.id) : [];
+
+                    submenu.innerHTML = '';
+                    roles.forEach(role => {
+                        const hasRole = memberRoleIds.includes(role.id);
+                        const item = document.createElement('div');
+                        item.className = 'mcm-item';
+                        item.innerHTML = `
+                            <div style="display:flex;align-items:center;pointer-events:none;">
+                                <div class="member-role-dot" style="background-color:${role.color || '#99aab5'}"></div>
+                                ${role.name}
+                            </div>
+                            <input type="checkbox" ${hasRole ? 'checked' : ''} style="pointer-events:none;" />
+                        `;
+                        item.onclick = (e) => {
+                            e.stopPropagation();
+                            toggleMemberRole(serverId, userId, role.id, hasRole);
+                        };
+                        submenu.appendChild(item);
+                    });
+                });
+        });
+    }
+
+    function toggleMemberRole(serverId, userId, roleId, currentHas) {
+    fetch('/Server/GetMembers?serverId=' + serverId)
+        .then(r => r.json())
+        .then(members => {
+            const member = members.find(m => m.userId === userId);
+            if (!member) return;
+
+            let roleIds = member.roles.map(r => r.id);
+            if (currentHas) roleIds = roleIds.filter(id => id !== roleId);
+            else roleIds.push(roleId);
+
+            const fd = new FormData();
+            fd.append('serverId', serverId);
+            fd.append('userId', userId);
+            fd.append('roleIds', roleIds.join(','));
+
+            fetch('/Server/UpdateMemberRoles', { method: 'POST', body: fd })
+                .then(r => {
+                    if (r.ok) {
+                        location.reload(); 
+                    }
+                });
+        });
+    }
+
+    function changeNicknamePrompt() {
+    const newNick = prompt("Enter new nickname for " + currentMemberName + " (leave empty to reset):");
+    if (newNick === null) return;
+
+    const fd = new FormData();
+    fd.append('serverId', currentServerIdForMember);
+    fd.append('userId', currentMemberId);
+    fd.append('nickname', newNick);
+
+    fetch('/Server/UpdateNickname', { method: 'POST', body: fd })
+        .then(r => {
+            if (r.ok) location.reload();
+            else r.text().then(alert);
+        });
+    }
+
+    function kickMemberAction() {
+    if (confirm("Are you sure you want to kick " + currentMemberName + "?")) {
+        const fd = new FormData();
+        fd.append('serverId', currentServerIdForMember);
+        fd.append('userId', currentMemberId);
+
+        fetch('/Server/KickMember', { method: 'POST', body: fd })
+            .then(r => {
+                if (r.ok) location.reload();
+                else r.text().then(alert);
+            });
+    }
+    }
+
+    function banMemberAction() {
+    const reason = prompt("Enter reason for banning " + currentMemberName + " (optional):");
+    if (reason === null) return;
+
+    if (confirm("Are you sure you want to BAN " + currentMemberName + "?")) {
+        const fd = new FormData();
+        fd.append('serverId', currentServerIdForMember);
+        fd.append('userId', currentMemberId);
+        fd.append('reason', reason);
+
+        fetch('/Server/BanMember', { method: 'POST', body: fd })
+            .then(r => {
+                if (r.ok) location.reload();
+                else r.text().then(alert);
+            });
+    }
+    }
+
+    // ─── Chat Input ────────────────────────────────────────────────────
+
 function setupChatInput(channelId) {
     var input = document.getElementById('message-input');
     if (!input) return;
@@ -511,6 +713,7 @@ function cancelReply() {
 }
 
 function showQuickReactions(id, btn) {
+    closeAllMenus();
     const pop = document.createElement('div');
     pop.className = 'quick-emoji-popover';
     ['👍', '❤️', '😂', '🔥'].forEach(emoji => {
@@ -521,8 +724,16 @@ function showQuickReactions(id, btn) {
     });
     document.body.appendChild(pop);
     const r = btn.getBoundingClientRect();
-    pop.style.left = (r.left + window.scrollX - 40) + 'px';
-    pop.style.top = (r.top + window.scrollY - 46) + 'px';
+    
+    let x = r.left - 40;
+    let y = r.top - 46;
+    
+    if (x + 200 > window.innerWidth) x = window.innerWidth - 210;
+    if (x < 0) x = 10;
+    if (y < 0) y = r.bottom + 10;
+    
+    pop.style.left = x + 'px';
+    pop.style.top = y + 'px';
 }
 
 function toggleReaction(id, emoji) {
@@ -545,6 +756,39 @@ function updateReactionInUI(id, emoji, count, has) {
 }
 
 connection.on('ReactionToggled', (id, em, cnt, has) => updateReactionInUI(id, em, cnt, has));
+
+connection.on("UserStatusChanged", (userId, isOnline) => {
+    refreshMembersSidebar();
+});
+
+function refreshMembersSidebar() {
+    const sidebar = document.querySelector('.members-sidebar');
+    if (!sidebar) return;
+    
+    // Get server ID from ss-server-id or URL
+    let serverId = document.getElementById('ss-server-id')?.value;
+    if (!serverId || serverId === "0") {
+        const parts = window.location.pathname.split('/');
+        serverId = parts[parts.length - 1];
+    }
+    
+    if (serverId && !isNaN(serverId)) {
+        fetch('/Server/GetMembersSidebar?serverId=' + serverId)
+            .then(r => r.text())
+            .then(html => {
+                const sidebar = document.querySelector('.members-sidebar');
+                if (sidebar) {
+                    const parent = sidebar.parentElement;
+                    const temp = document.createElement('div');
+                    temp.innerHTML = html;
+                    const newSidebar = temp.querySelector('.members-sidebar');
+                    if (newSidebar) {
+                        parent.replaceChild(newSidebar, sidebar);
+                    }
+                }
+            });
+    }
+}
 
 //Server Creation
 function openCreateServerModal(){
@@ -633,27 +877,17 @@ function toggleServerDropdown() {
     const menu = document.getElementById('server-dropdown-menu');
     const chevron = document.getElementById('header-chevron');
     if (menu) {
-        menu.classList.toggle('open');
-        if (menu.classList.contains('open')) {
-            chevron.style.transform = 'rotate(180deg)';
+        const wasOpen = menu.classList.contains('open');
+        closeAllMenus(); // Close all including self
+        
+        if (!wasOpen) {
+            menu.classList.add('open');
+            if (chevron) chevron.style.transform = 'rotate(180deg)';
         } else {
-            chevron.style.transform = 'rotate(0deg)';
+            // Already closed by closeAllMenus
         }
     }
 }
-
-// Close dropdown when clicking outside
-document.addEventListener('click', (e) => {
-    const dropdown = document.getElementById('server-header-dropdown');
-    const menu = document.getElementById('server-dropdown-menu');
-    const chevron = document.getElementById('header-chevron');
-    if (dropdown && !dropdown.contains(e.target)) {
-        if (menu && menu.classList.contains('open')) {
-            menu.classList.remove('open');
-            chevron.style.transform = 'rotate(0deg)';
-        }
-    }
-});
 
 function openServerSettingsModal() {
     const modal = document.getElementById('server-settings-modal');
@@ -811,6 +1045,8 @@ function deleteCurrentRole() {
 function loadMembers() {
     const serverId = document.getElementById('ss-server-id').value;
     if (!serverId) return;
+    const ownerId = document.getElementById('current-server-owner-id-val')?.value;
+
     fetch('/Server/GetMembers?serverId=' + serverId)
         .then(r => {
             if (!r.ok) throw new Error("Failed to load members");
@@ -821,15 +1057,23 @@ function loadMembers() {
             if (!container) return;
             container.innerHTML = '';
             members.forEach(m => {
+                const isOwner = m.userId === ownerId;
                 const div = document.createElement('div');
                 div.className = 'ss-member-item';
+                div.oncontextmenu = (e) => showMemberContextMenu(e, m.userId, m.displayName, serverId, isOwner);
                 div.innerHTML = `
                     <div class="ss-member-info">
                         <div class="ss-member-avatar" style="background-color: ${getUserColor(m.displayName)}">
                             ${m.hasPfp ? `<img src="/Server/GetProfilePicture?userId=${m.userId}" />` : m.displayName[0]}
                         </div>
                         <div class="ss-member-names">
-                            <span class="ss-member-display">${escapeHtml(m.displayName)}</span>
+                            <div style="display:flex;align-items:center;gap:4px;">
+                                <span class="ss-member-display">${escapeHtml(m.displayName)}</span>
+                                ${isOwner ? `
+                                    <svg title="Server Owner" width="14" height="14" viewBox="0 0 24 24" fill="#f1c40f">
+                                        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                                    </svg>` : ''}
+                            </div>
                             <span class="ss-member-user">${escapeHtml(m.userName)}</span>
                         </div>
                     </div>
@@ -845,6 +1089,7 @@ function loadMembers() {
 }
 
 function openMemberRolePicker(userId, btn) {
+    closeAllMenus();
     let picker = document.getElementById('member-role-picker');
     if (picker) picker.remove();
     picker = document.createElement('div');
@@ -860,8 +1105,18 @@ function openMemberRolePicker(userId, btn) {
     });
     document.body.appendChild(picker);
     const r = btn.getBoundingClientRect();
-    picker.style.left = (r.left + window.scrollX - 150) + 'px';
-    picker.style.top = (r.top + window.scrollY) + 'px';
+    
+    let x = r.left - 150;
+    let y = r.top;
+    
+    if (x < 0) x = r.right + 10;
+    const pickerHeight = picker.offsetHeight || 200;
+    if (y + pickerHeight > window.innerHeight) {
+        y = window.innerHeight - pickerHeight - 10;
+    }
+    
+    picker.style.left = x + 'px';
+    picker.style.top = y + 'px';
 }
 
 function addRoleToMember(userId, roleId) {

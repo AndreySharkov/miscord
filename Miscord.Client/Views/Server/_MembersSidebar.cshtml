@@ -1,0 +1,197 @@
+@model Miscord.Data.Models.Server
+@using Miscord.Services
+@using Miscord.Client.Services
+@inject IPresenceTracker PresenceTracker
+
+<aside class="members-sidebar">
+    @{
+        var members = Model.Members.ToList();
+        var roles = Model.Roles.OrderBy(r => r.Position).ToList();
+        
+        Func<Miscord.Data.Models.ServerMember, Miscord.Data.Models.ServerRole?> getHighestRole = (m) => {
+            return m.MemberRoles
+                .Select(mr => mr.ServerRole)
+                .OrderBy(r => r.Position)
+                .FirstOrDefault();
+        };
+
+        var onlineMembers = members.Where(m => PresenceTracker.IsUserOnline(m.UserId)).ToList();
+        var offlineMembers = members.Where(m => !PresenceTracker.IsUserOnline(m.UserId)).ToList();
+
+        var groupedOnline = onlineMembers
+            .GroupBy(m => getHighestRole(m)?.Id ?? -1)
+            .OrderBy(g => {
+                var role = roles.FirstOrDefault(r => r.Id == g.Key);
+                return role?.Position ?? int.MaxValue;
+            });
+    }
+
+    @foreach (var group in groupedOnline)
+    {
+        var role = roles.FirstOrDefault(r => r.Id == group.Key);
+        var groupTitle = role?.Name ?? "Online";
+        var groupColor = role?.Color ?? "#949ba4";
+
+        <div class="members-group online-group" data-role-id="@group.Key">
+            <div class="members-group-title" style="color: @groupColor">
+                @groupTitle — @group.Count()
+            </div>
+            @foreach (var member in group.OrderBy(m => m.Nickname ?? m.User.Nickname ?? m.User.UserName))
+            {
+                var displayName = member.Nickname ?? member.User.Nickname ?? member.User.UserName;
+                var userColor = AvatarHelper.GetUserColor(displayName);
+                var isOwner = member.UserId == Model.OwnerId;
+
+                <div class="member-item online" data-userid="@member.UserId"
+                     oncontextmenu="showMemberContextMenu(event, '@member.UserId', '@displayName', '@Model.Id', @(isOwner ? "true" : "false"))"
+                     onclick="showMemberProfile('@member.UserId')">
+                    <div class="member-avatar" style="background-color: @(member.User.ProfilePictureData == null ? userColor : "transparent")">
+                        @if (member.User.ProfilePictureData == null)
+                        {
+                            @displayName.Substring(0, 1).ToUpper()
+                        }
+                        else
+                        {
+                            <img src="data:image/png;base64,@Convert.ToBase64String(member.User.ProfilePictureData)" alt="@displayName" />
+                        }
+                        <div class="member-status-dot online"></div>
+                    </div>
+                    <div class="member-info">
+                        <div class="member-name" style="color: @(role?.Color ?? "#dbdee1")">
+                            @displayName
+                            @if (isOwner)
+                            {
+                                <svg title="Server Owner" width="14" height="14" viewBox="0 0 24 24" fill="#f1c40f" style="margin-left:4px; vertical-align: middle;">
+                                    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                                </svg>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @if (offlineMembers.Any())
+    {
+        <div class="members-group offline-group">
+            <div class="members-group-title">
+                Offline — @offlineMembers.Count
+            </div>
+            @foreach (var member in offlineMembers.OrderBy(m => m.Nickname ?? m.User.Nickname ?? m.User.UserName))
+            {
+                var displayName = member.Nickname ?? member.User.Nickname ?? member.User.UserName;
+                var userColor = AvatarHelper.GetUserColor(displayName);
+                var isOwner = member.UserId == Model.OwnerId;
+
+                <div class="member-item offline" data-userid="@member.UserId"
+                     oncontextmenu="showMemberContextMenu(event, '@member.UserId', '@displayName', '@Model.Id', @(isOwner ? "true" : "false"))"
+                     onclick="showMemberProfile('@member.UserId')">
+                    <div class="member-avatar" style="background-color: @(member.User.ProfilePictureData == null ? userColor : "transparent"); opacity: 0.3;">
+                        @if (member.User.ProfilePictureData == null)
+                        {
+                            @displayName.Substring(0, 1).ToUpper()
+                        }
+                        else
+                        {
+                            <img src="data:image/png;base64,@Convert.ToBase64String(member.User.ProfilePictureData)" alt="@displayName" />
+                        }
+                        <div class="member-status-dot offline"></div>
+                    </div>
+                    <div class="member-info">
+                        <div class="member-name" style="color: #949ba4">
+                            @displayName
+                            @if (isOwner)
+                            {
+                                <svg title="Server Owner" width="14" height="14" viewBox="0 0 24 24" fill="#949ba4" style="margin-left:4px; vertical-align: middle;">
+                                    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                                </svg>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</aside>
+
+<!-- Member Context Menu -->
+<div id="member-context-menu" class="member-context-menu" style="display:none;">
+    <div class="mcm-item" onclick="changeNicknamePrompt()">
+        Change Nickname
+    </div>
+    <div class="mcm-item" id="mcm-roles-item">
+        Roles
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        <div class="mcm-submenu" id="mcm-roles-submenu">
+            <!-- Roles will be populated here -->
+        </div>
+    </div>
+    <div class="mcm-divider"></div>
+    <div class="mcm-item danger" id="mcm-kick-item" onclick="kickMemberAction()">
+        Kick <span id="mcm-kick-name"></span>
+    </div>
+    <div class="mcm-item danger" id="mcm-ban-item" onclick="banMemberAction()">
+        Ban <span id="mcm-ban-name"></span>
+    </div>
+</div>
+
+<!-- Custom Management Modals -->
+
+<!-- 1. Change Nickname Modal -->
+<div id="nickname-modal" class="cs-backdrop">
+    <div class="cs-modal">
+        <button class="cs-close-btn" onclick="closeNicknameModal()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <div class="cs-header">
+            <h2 class="cs-title">Change Nickname</h2>
+            <p class="cs-subtitle">Change how <strong id="nick-modal-target-name"></strong> appears in this server.</p>
+        </div>
+        <div class="cs-form">
+            <div class="cs-field">
+                <label class="cs-label">Nickname</label>
+                <input type="text" id="nick-modal-input" class="cs-input" placeholder="Enter a new nickname" autocomplete="off" />
+                <p class="cs-help-text">Leave empty to reset to user's original name.</p>
+            </div>
+            <div class="cs-actions">
+                <button type="button" class="cs-btn cs-btn--secondary" onclick="closeNicknameModal()">Cancel</button>
+                <button type="button" class="cs-btn cs-btn--primary" onclick="submitNicknameChange()">Save Nickname</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 2. Kick Member Modal -->
+<div id="kick-modal" class="cs-backdrop">
+    <div class="cs-modal">
+        <div class="cs-header">
+            <h2 class="cs-title">Kick '<span id="kick-modal-target-name"></span>'</h2>
+            <p class="cs-subtitle">Are you sure you want to kick this user from the server? They can rejoin with an invite.</p>
+        </div>
+        <div class="cs-actions">
+            <button type="button" class="cs-btn cs-btn--secondary" onclick="closeKickModal()">Cancel</button>
+            <button type="button" class="cs-btn cs-btn--danger" onclick="submitKickAction()">Kick Member</button>
+        </div>
+    </div>
+</div>
+
+<!-- 3. Ban Member Modal -->
+<div id="ban-modal" class="cs-backdrop">
+    <div class="cs-modal">
+        <div class="cs-header">
+            <h2 class="cs-title">Ban '<span id="ban-modal-target-name"></span>'</h2>
+            <p class="cs-subtitle">Are you sure you want to ban this user? They will be removed and unable to rejoin.</p>
+        </div>
+        <div class="cs-form">
+            <div class="cs-field">
+                <label class="cs-label">Reason for Ban</label>
+                <textarea id="ban-modal-reason" class="cs-input" rows="3" placeholder="Optional reason..."></textarea>
+            </div>
+            <div class="cs-actions">
+                <button type="button" class="cs-btn cs-btn--secondary" onclick="closeBanModal()">Cancel</button>
+                <button type="button" class="cs-btn cs-btn--danger" onclick="submitBanAction()">Ban Member</button>
+            </div>
+        </div>
+    </div>
+</div>

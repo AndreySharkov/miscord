@@ -33,5 +33,6 @@ namespace Miscord.Client.Models
         public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
         public List<ChatMessageViewModel> Messages { get; set; } = new();
+        public Miscord.Data.Models.Server Server { get; set; } = null!;
     }
 }

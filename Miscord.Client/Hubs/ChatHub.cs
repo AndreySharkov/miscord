@@ -5,16 +5,48 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
 using Miscord.Data;
 using Miscord.Data.Models;
+using Miscord.Client.Services;
 
 namespace Miscord.Client.Hubs
 {
     public class ChatHub : Hub
     {
         private readonly AppDbContext _context;
-        public ChatHub(AppDbContext context)
+        private readonly IPresenceTracker _presenceTracker;
+
+        public ChatHub(AppDbContext context, IPresenceTracker presenceTracker)
         {
             _context = context;
+            _presenceTracker = presenceTracker;
         }
+
+        public override async Task OnConnectedAsync()
+        {
+            var userId = Context.UserIdentifier;
+            if (userId != null)
+            {
+                _presenceTracker.UserConnected(userId, Context.ConnectionId);
+                await Clients.All.SendAsync("UserStatusChanged", userId, true);
+            }
+            await base.OnConnectedAsync();
+        }
+
+        public override async Task OnDisconnectedAsync(Exception? exception)
+        {
+            var userId = Context.UserIdentifier;
+            if (userId != null)
+            {
+                _presenceTracker.UserDisconnected(userId, Context.ConnectionId);
+                
+                // Only notify if user is fully offline (no more active connections)
+                if (!_presenceTracker.IsUserOnline(userId))
+                {
+                    await Clients.All.SendAsync("UserStatusChanged", userId, false);
+                }
+            }
+            await base.OnDisconnectedAsync(exception);
+        }
+
         public async Task SendMessage(string userId, int channelId, string content)
         {
             if (string.IsNullOrWhiteSpace(content)) return;

@@ -25,10 +25,23 @@ namespace Miscord.Data
         public DbSet<ServerMember> ServerMembers { get; set; }
         public DbSet<ServerMemberRole> ServerMemberRoles { get; set; }
         public DbSet<Invite> Invites { get; set; }
+        public DbSet<ServerBan> ServerBans { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
+
+            builder.Entity<ServerBan>()
+                .HasOne(sb => sb.Server)
+                .WithMany()
+                .HasForeignKey(sb => sb.ServerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<ServerBan>()
+                .HasOne(sb => sb.User)
+                .WithMany()
+                .HasForeignKey(sb => sb.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
 
             builder.Entity<Invite>()
                 .HasOne(i => i.Server)
